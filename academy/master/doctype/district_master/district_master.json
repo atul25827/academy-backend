@@ -1,0 +1,62 @@
+{
+ "actions": [],
+ "allow_import": 1,
+ "allow_rename": 1,
+ "autoname": "format:{district_code}",
+ "creation": "2025-01-21 14:53:34.120245",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "district",
+  "district_code",
+  "column_break_sofr",
+  "state"
+ ],
+ "fields": [
+  {
+   "fieldname": "district",
+   "fieldtype": "Data",
+   "label": "District"
+  },
+  {
+   "fieldname": "column_break_sofr",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "state",
+   "fieldtype": "Link",
+   "label": "State",
+   "options": "State List"
+  },
+  {
+   "fieldname": "district_code",
+   "fieldtype": "Data",
+   "label": "District Code"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-01-22 16:03:48.666448",
+ "modified_by": "Administrator",
+ "module": "Master",
+ "name": "District Master",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

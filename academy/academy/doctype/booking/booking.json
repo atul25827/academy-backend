@@ -1,0 +1,245 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:booking_id",
+ "creation": "2026-01-17 15:08:27.049984",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "booking_details_tab",
+  "booking_id",
+  "academy",
+  "merilian_code",
+  "full_name",
+  "email",
+  "contact_number",
+  "vertical",
+  "department",
+  "event_title",
+  "description",
+  "event_start_date",
+  "event_end_date",
+  "no_of_participants",
+  "it_requirement",
+  "specific_requirement_if_any",
+  "mats_event",
+  "mats_request_number",
+  "tab_2_tab",
+  "event_status",
+  "overall_status",
+  "is_submitted",
+  "is_rejected",
+  "is_approved",
+  "attendence_submitted",
+  "event_plan_tab",
+  "event_planning",
+  "approver_tab",
+  "approver_section",
+  "approver",
+  "attachment_tab",
+  "table_trig"
+ ],
+ "fields": [
+  {
+   "fieldname": "booking_details_tab",
+   "fieldtype": "Tab Break",
+   "label": "Booking Details"
+  },
+  {
+   "fieldname": "booking_id",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Booking Id",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "academy",
+   "fieldtype": "Link",
+   "label": "Academy",
+   "options": "Academy Master"
+  },
+  {
+   "fieldname": "merilian_code",
+   "fieldtype": "Data",
+   "label": "Merilian Code"
+  },
+  {
+   "fieldname": "full_name",
+   "fieldtype": "Data",
+   "label": "Full Name"
+  },
+  {
+   "fieldname": "email",
+   "fieldtype": "Data",
+   "label": "Email"
+  },
+  {
+   "fieldname": "contact_number",
+   "fieldtype": "Data",
+   "label": "Contact Number"
+  },
+  {
+   "fieldname": "vertical",
+   "fieldtype": "Link",
+   "label": "Vertical",
+   "options": "Master Company"
+  },
+  {
+   "fieldname": "department",
+   "fieldtype": "Link",
+   "label": "Department",
+   "options": "Department Master"
+  },
+  {
+   "fieldname": "event_title",
+   "fieldtype": "Data",
+   "label": "Event Title"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description"
+  },
+  {
+   "fieldname": "event_start_date",
+   "fieldtype": "Date",
+   "label": "Event Start Date"
+  },
+  {
+   "fieldname": "event_end_date",
+   "fieldtype": "Date",
+   "label": "Event End Date"
+  },
+  {
+   "fieldname": "no_of_participants",
+   "fieldtype": "Int",
+   "label": "No of Participants"
+  },
+  {
+   "fieldname": "it_requirement",
+   "fieldtype": "Data",
+   "label": "IT Requirement"
+  },
+  {
+   "fieldname": "mats_event",
+   "fieldtype": "Select",
+   "label": "Mats Event",
+   "options": "Yes\nNo"
+  },
+  {
+   "fieldname": "mats_request_number",
+   "fieldtype": "Data",
+   "label": "Mats Request Number"
+  },
+  {
+   "fieldname": "tab_2_tab",
+   "fieldtype": "Tab Break",
+   "label": "Status"
+  },
+  {
+   "fieldname": "event_status",
+   "fieldtype": "Select",
+   "label": "Event Status",
+   "options": "Submitted\nPending\nAwaiting\nApproved\nRejected\nAttendence Submitted"
+  },
+  {
+   "fieldname": "overall_status",
+   "fieldtype": "Data",
+   "label": "Overall Status"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_submitted",
+   "fieldtype": "Check",
+   "label": "Is Submitted"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_rejected",
+   "fieldtype": "Check",
+   "label": "Is Rejected"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_approved",
+   "fieldtype": "Check",
+   "label": "Is Approved"
+  },
+  {
+   "default": "0",
+   "fieldname": "attendence_submitted",
+   "fieldtype": "Check",
+   "label": "Attendence Submitted"
+  },
+  {
+   "fieldname": "event_plan_tab",
+   "fieldtype": "Tab Break",
+   "label": "Event Planning"
+  },
+  {
+   "fieldname": "event_planning",
+   "fieldtype": "Table",
+   "label": "Event Planning",
+   "options": "Event Planning Child"
+  },
+  {
+   "fieldname": "approver_tab",
+   "fieldtype": "Tab Break",
+   "label": "Approver"
+  },
+  {
+   "fieldname": "approver_section",
+   "fieldtype": "Section Break",
+   "label": "Approver"
+  },
+  {
+   "fieldname": "approver",
+   "fieldtype": "Table",
+   "label": "Approver",
+   "options": "Approver Child"
+  },
+  {
+   "fieldname": "attachment_tab",
+   "fieldtype": "Tab Break",
+   "label": "Attachment"
+  },
+  {
+   "fieldname": "table_trig",
+   "fieldtype": "Table",
+   "label": "Attachment",
+   "options": "Attachment"
+  },
+  {
+   "fieldname": "specific_requirement_if_any",
+   "fieldtype": "Small Text",
+   "label": "Specific Requirement If Any"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-01-28 16:31:39.674731",
+ "modified_by": "Administrator",
+ "module": "academy",
+ "name": "Booking",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

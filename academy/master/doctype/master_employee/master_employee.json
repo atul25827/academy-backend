@@ -1,0 +1,183 @@
+{
+ "actions": [],
+ "allow_import": 1,
+ "allow_rename": 1,
+ "autoname": "format:{employee_name}-{employee_code}",
+ "creation": "2025-01-28 14:17:34.867265",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "is_active",
+  "employee_name",
+  "employee_code",
+  "employee_designation",
+  "employee_department",
+  "email",
+  "mobile",
+  "city",
+  "state",
+  "zone",
+  "gender",
+  "column_break_sups",
+  "country",
+  "meril_division",
+  "reporting_head",
+  "role",
+  "date_of_joining",
+  "date_of_birth",
+  "company",
+  "linked_user",
+  "date_of_resignation",
+  "is_imported"
+ ],
+ "fields": [
+  {
+   "default": "1",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "label": "Is Active"
+  },
+  {
+   "fieldname": "employee_name",
+   "fieldtype": "Data",
+   "label": "Employee Name"
+  },
+  {
+   "fieldname": "employee_code",
+   "fieldtype": "Data",
+   "label": "Employee Code"
+  },
+  {
+   "fieldname": "employee_designation",
+   "fieldtype": "Link",
+   "label": "Employee Designation",
+   "options": "Designation Master"
+  },
+  {
+   "fieldname": "employee_department",
+   "fieldtype": "Link",
+   "label": "Employee Department",
+   "options": "Department Master"
+  },
+  {
+   "fieldname": "email",
+   "fieldtype": "Data",
+   "label": "Email"
+  },
+  {
+   "fieldname": "mobile",
+   "fieldtype": "Data",
+   "label": "Mobile"
+  },
+  {
+   "fieldname": "city",
+   "fieldtype": "Link",
+   "label": "City",
+   "options": "City List"
+  },
+  {
+   "fetch_from": "city.state",
+   "fieldname": "state",
+   "fieldtype": "Data",
+   "label": "State"
+  },
+  {
+   "fieldname": "zone",
+   "fieldtype": "Link",
+   "label": "Zone",
+   "options": "Zone List"
+  },
+  {
+   "fieldname": "country",
+   "fieldtype": "Data",
+   "label": "Country",
+   "read_only": 1
+  },
+  {
+   "fieldname": "meril_division",
+   "fieldtype": "Link",
+   "label": "Meril Division",
+   "options": "Master Division"
+  },
+  {
+   "fieldname": "column_break_sups",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "reporting_head",
+   "fieldtype": "Link",
+   "label": "Reporting Head",
+   "options": "Master Employee"
+  },
+  {
+   "fieldname": "role",
+   "fieldtype": "Link",
+   "label": "Role",
+   "options": "Role"
+  },
+  {
+   "fieldname": "date_of_joining",
+   "fieldtype": "Date",
+   "label": "Date of Joining"
+  },
+  {
+   "fieldname": "date_of_birth",
+   "fieldtype": "Date",
+   "label": "Date of Birth"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Master Company"
+  },
+  {
+   "fieldname": "linked_user",
+   "fieldtype": "Link",
+   "label": "Linked User",
+   "options": "User"
+  },
+  {
+   "fieldname": "date_of_resignation",
+   "fieldtype": "Date",
+   "label": "Date of Resignation"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_imported",
+   "fieldtype": "Check",
+   "label": "Is Imported"
+  },
+  {
+   "fieldname": "gender",
+   "fieldtype": "Select",
+   "label": "Gender",
+   "options": "Select\nMale\nFemale\nOthers"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-05-08 14:15:10.876094",
+ "modified_by": "Administrator",
+ "module": "Master",
+ "name": "Master Employee",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

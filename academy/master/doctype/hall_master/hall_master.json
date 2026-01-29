@@ -1,0 +1,86 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:hall_name",
+ "creation": "2026-01-17 10:46:25.014573",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "hall_name",
+  "academy_name",
+  "capacity",
+  "wifi",
+  "screen",
+  "remote_screen",
+  "attachment"
+ ],
+ "fields": [
+  {
+   "fieldname": "hall_name",
+   "fieldtype": "Data",
+   "label": "Hall Name",
+   "unique": 1
+  },
+  {
+   "fieldname": "academy_name",
+   "fieldtype": "Link",
+   "label": "Academy Name",
+   "options": "Academy Master"
+  },
+  {
+   "fieldname": "capacity",
+   "fieldtype": "Int",
+   "label": "Capacity"
+  },
+  {
+   "default": "0",
+   "fieldname": "wifi",
+   "fieldtype": "Check",
+   "label": "Wifi"
+  },
+  {
+   "default": "0",
+   "fieldname": "screen",
+   "fieldtype": "Check",
+   "label": "Screen"
+  },
+  {
+   "default": "0",
+   "fieldname": "remote_screen",
+   "fieldtype": "Check",
+   "label": "Remote Screen"
+  },
+  {
+   "fieldname": "attachment",
+   "fieldtype": "Table",
+   "label": "Attachment",
+   "options": "Attachment"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-01-20 17:33:26.494367",
+ "modified_by": "Administrator",
+ "module": "Master",
+ "name": "Hall Master",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

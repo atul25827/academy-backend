@@ -1,0 +1,70 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-01-27 17:56:20.931809",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "link_doc",
+  "academy",
+  "approver_type",
+  "user",
+  "approvers"
+ ],
+ "fields": [
+  {
+   "fieldname": "academy",
+   "fieldtype": "Link",
+   "label": "Academy",
+   "options": "Academy Master"
+  },
+  {
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "label": "User",
+   "options": "User"
+  },
+  {
+   "fieldname": "approvers",
+   "fieldtype": "Table",
+   "label": "Approvers",
+   "options": "Approvers"
+  },
+  {
+   "fieldname": "approver_type",
+   "fieldtype": "Select",
+   "label": "Approver Type",
+   "options": "User\nRole"
+  },
+  {
+   "fieldname": "link_doc",
+   "fieldtype": "Link",
+   "label": "Doctype Name",
+   "options": "DocType"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-01-28 16:16:27.028478",
+ "modified_by": "Administrator",
+ "module": "academy",
+ "name": "Academy Approval Matrix",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

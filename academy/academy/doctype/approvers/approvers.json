@@ -1,0 +1,44 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-01-27 18:00:22.160894",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "level_section",
+  "level",
+  "approver_name"
+ ],
+ "fields": [
+  {
+   "fieldname": "level_section",
+   "fieldtype": "Section Break",
+   "in_standard_filter": 1,
+   "label": "Level"
+  },
+  {
+   "fieldname": "level",
+   "fieldtype": "Data",
+   "label": "Level"
+  },
+  {
+   "fieldname": "approver_name",
+   "fieldtype": "Link",
+   "label": "Approver Name",
+   "options": "User"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-01-28 16:15:04.698972",
+ "modified_by": "Administrator",
+ "module": "academy",
+ "name": "Approvers",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
