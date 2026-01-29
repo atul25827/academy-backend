@@ -296,7 +296,7 @@ def get_booking_details(booking_id=None):
 	"""
 	try:
 		# Support both snake_case and camelCase argument
-		bid = booking_id or bookingId
+		bid = booking_id or frappe.form_dict.get("bookingId")
 		if not bid:
 			frappe.local.response['http_status_code'] = 400
 			return {"message": "Booking ID is required."}
@@ -308,17 +308,26 @@ def get_booking_details(booking_id=None):
 		doc = frappe.get_doc("Booking", bid)
 		
 		# Ensure the user has permission to view this document
-		# This is a basic check. You might want to restrict to owner or specific roles.
-		# specific logic for "based on user" from previous context:
 		user = frappe.session.user
 		if user != "Administrator" and user != doc.owner:
-			# Check if user has a role that allows viewing all bookings (e.g., Academy Admin)
 			roles = frappe.get_roles(user)
 			if "Academy Admin" not in roles and "System Manager" not in roles:
 				frappe.local.response['http_status_code'] = 403
 				return {"message": "You are not authorized to view this booking."}
 
 		doc_dict = doc.as_dict()
+		
+		# Calculate can_approve flag
+		# Logic: User is in the 'approver' child table AND their specific row status is 'Awaiting'
+		can_approve = False
+		if doc.approver:
+			for approver_row in doc.approver:
+				if approver_row.approver_name == user and approver_row.approver_status == "Awaiting":
+					can_approve = True
+					break
+		
+		doc_dict["can_approve"] = can_approve
+
 		if "approver" in doc_dict:
 			del doc_dict["approver"]
 
@@ -333,3 +342,312 @@ def get_booking_details(booking_id=None):
 			"error": "An error occurred while fetching booking details.",
 			"details": str(e)
 		}
+
+@frappe.whitelist(allow_guest=True)
+def get_calendar_bookings(start_date=None, end_date=None, academy=None, hall=None):
+	"""
+	Fetch bookings for calendar view within a date range.
+	"""
+	try:
+		if not start_date or not end_date:
+			return []
+
+		filters = [
+			["event_start_date", "<=", end_date],
+			["event_end_date", ">=", start_date]
+		]
+
+		if academy and academy != "all":
+			filters.append(["academy", "=", academy])
+
+		if hall and hall != "all":
+			# Get bookings that have this hall in child table
+			# Using get_all on child table is efficient for filtering parent
+			booking_names = frappe.get_all(
+				"Event Planning Child",
+				filters={"hall": hall},
+				pluck="parent",
+				distinct=True
+			)
+			if not booking_names:
+				return []
+			filters.append(["name", "in", booking_names])
+
+		bookings = frappe.get_all(
+			"Booking",
+			filters=filters,
+			or_filters={
+				"event_status": "Approved",
+				"is_approved": 1
+			},
+			fields=[
+				"name", 
+				"event_title", 
+				"event_start_date", 
+				"event_end_date", 
+				"event_status", 
+				"academy", 
+				"full_name", 
+				"department"
+			]
+		)
+
+		# Map fields to requested format
+		result = []
+		for b in bookings:
+			result.append({
+				"booking_id": b.name,
+				"event_title": b.event_title,
+				"event_start_date": b.event_start_date,
+				"event_end_date": b.event_end_date,
+				"status": b.event_status,
+				"academy": b.academy,
+				"full_name": b.full_name,
+				"department": b.department
+			})
+
+		return result
+
+	except Exception as e:
+		frappe.log_error(title="Calendar Booking Error", message=str(e))
+		return []
+
+@frappe.whitelist()
+def get_approver_stats():
+	"""
+	Fetch stats for a user acting as an Approver or Owner using Frappe ORM.
+	1. Total Bookings: User is Owner OR User is in Approver list.
+	2. Pending: User is Approver AND status is 'Awaiting' (Waiting for THIS user).
+	3. Approved: User is Approver AND status is 'Approved' (Approved BY this user).
+	4. Rejected: User is Approver AND status is 'Rejected' (Rejected BY this user).
+	"""
+	try:
+		user = frappe.session.user
+		
+		# 1. Total Bookings (Owner OR Approver)
+		# Fetch bookings where user is Owner
+		owner_bookings = frappe.get_all("Booking", filters={"owner": user}, pluck="name")
+		
+		# Fetch bookings where user is Approver
+		approver_bookings = frappe.get_all("Approver Child", filters={"approver_name": user}, pluck="parent")
+		
+		# Union of both sets
+		total_bookings_count = len(set(owner_bookings + approver_bookings))
+
+		# 2. Approved by User
+		total_approved = frappe.db.count("Approver Child", filters={"approver_name": user, "approver_status": "Approved"})
+
+		# 3. Rejected by User
+		total_rejected = frappe.db.count("Approver Child", filters={"approver_name": user, "approver_status": "Rejected"})
+
+		# 4. Pending (Awaiting Action from User)
+		total_pending = frappe.db.count("Approver Child", filters={"approver_name": user, "approver_status": "Awaiting"})
+
+		return {
+			"total_bookings": total_bookings_count,
+			"total_approved": total_approved,
+			"total_rejected": total_rejected,
+			"total_pending": total_pending
+		}
+	except Exception as e:
+		frappe.log_error(title="Approver Stats Error", message=str(e))
+		frappe.local.response['http_status_code'] = 500
+		return {"error": str(e)}
+
+@frappe.whitelist()
+def get_approver_booking_list(page_number=1, page_length=10, status=None, search_name=None, academy=None, hall=None):
+	"""
+	Fetch list of bookings where current user is Owner OR Approver using Frappe ORM.
+	Supported Filters: Status, Search (Booking ID), Academy, Hall.
+	"""
+	try:
+		user = frappe.session.user
+		page_number = int(page_number)
+		page_length = int(page_length)
+		start = (page_number - 1) * page_length
+
+		# 1. Base Scope: Owner OR Approver
+		owner_bookings = frappe.get_all("Booking", filters={"owner": user}, pluck="name")
+		approver_bookings = frappe.get_all("Approver Child", filters={"approver_name": user}, pluck="parent")
+		
+		# Set of Booking Names visible to this user
+		allowed_ids = set(owner_bookings + approver_bookings)
+
+		if not allowed_ids:
+			return {
+				"data": [],
+				"total_count": 0,
+				"page_length": page_length,
+				"page_number": page_number,
+				"total_pages": 0
+			}
+
+		filters = []
+
+		# 2. Academy Filter
+		if academy and academy != "all":
+			filters.append(["Booking", "academy", "=", academy])
+
+
+		# 3. Status Filter
+		if status and status != "all":
+			if status == "Awaiting":
+				# Special case: Filter bookings where THIS user has 'Awaiting' status in approver child table
+				awaiting_bookings = frappe.get_all(
+					"Approver Child", 
+					filters={"approver_name": user, "approver_status": "Awaiting"}, 
+					pluck="parent"
+				)
+				if not awaiting_bookings:
+					return {
+						"data": [], "total_count": 0, "page_length": page_length, 
+						"page_number": page_number, "total_pages": 0
+					}
+				filters.append(["Booking", "name", "in", awaiting_bookings])
+			else:
+				# Standard status filter on the main Booking status
+				filters.append(["Booking", "event_status", "=", status])
+
+		# 4. Search Filter
+		if search_name:
+			filters.append(["Booking", "booking_id", "like", f"%{search_name}%"])
+
+		# 5. Hall Filter (Child Table)
+		if hall and hall != "all":
+			# Get bookings that have this hall
+			hall_bookings = frappe.get_all("Event Planning Child", filters={"hall": hall}, pluck="parent")
+			
+			if not hall_bookings:
+				# If hall filter matches nothing, return empty
+				return {
+					"data": [],
+					"total_count": 0,
+					"page_length": page_length,
+					"page_number": page_number,
+					"total_pages": 0
+				}
+			
+			# Intersect allowed IDs with Hall IDs to narrow down scope
+			allowed_ids = allowed_ids.intersection(set(hall_bookings))
+			
+			if not allowed_ids:
+				return {
+					"data": [],
+					"total_count": 0,
+					"page_length": page_length,
+					"page_number": page_number,
+					"total_pages": 0
+				}
+
+		# Apply the final list of allowed booking IDs
+		filters.append(["Booking", "name", "in", list(allowed_ids)])
+
+		# Fetch Data
+		data = frappe.get_list(
+			"Booking",
+			filters=filters,
+			fields=[
+				"name", "booking_id", "academy", "event_title", "event_status", 
+				"event_start_date", "event_end_date", "overall_status", "creation", "owner"
+			],
+			order_by="creation desc",
+			start=start,
+			page_length=page_length
+		)
+
+		# Enrich Owner Name
+		for row in data:
+			row["full_name"] = frappe.utils.get_fullname(row["owner"])
+		
+		# Total Count
+		total_count = frappe.db.count("Booking", filters=filters)
+
+		return {
+			"data": data,
+			"total_count": total_count,
+			"page_length": page_length,
+			"page_number": page_number,
+			"total_pages": (total_count + page_length - 1) // page_length
+		}
+
+	except Exception as e:
+		frappe.log_error(title="Approver List Error", message=str(e))
+		frappe.local.response['http_status_code'] = 500
+		return {"error": str(e)}
+
+@frappe.whitelist()
+def update_booking_status(booking_id, action, remark=None):
+	try:
+		user = frappe.session.user
+		if user == "Guest":
+			frappe.local.response['http_status_code'] = 401
+			return {"message": "Unauthorized"}
+
+		if not frappe.db.exists("Booking", booking_id):
+			frappe.local.response['http_status_code'] = 404
+			return {"message": "Booking not found"}
+
+		doc = frappe.get_doc("Booking", booking_id)
+
+		found_approver = False
+		current_index = -1
+
+		# Find the current user in the approver list with status 'Awaiting'
+		for idx, row in enumerate(doc.approver):
+			# Parsing approver_name which is likely user ID.
+			if row.approver_name == user and row.approver_status == 'Awaiting':
+				found_approver = True
+				current_index = idx
+				
+				# Update current approver row
+				if action == "Approve":
+					row.approver_status = "Approved"
+				elif action == "Reject":
+					row.approver_status = "Rejected"
+				else:
+					return {"message": "Invalid Action. Use 'Approve' or 'Reject'."}
+				
+				row.remark = remark
+				break
+		
+		if not found_approver:
+			frappe.local.response['http_status_code'] = 403
+			return {"message": "You are not authorized to approve/reject this booking at this stage."}
+
+		# Handle Cascade Logic
+		if action == "Approve":
+			# check if there is a next approver
+			if current_index + 1 < len(doc.approver):
+				# Next approver exists
+				next_approver_row = doc.approver[current_index + 1]
+				next_approver_row.approver_status = "Awaiting"
+				
+				# Get Full Name for nice message
+				next_name = frappe.utils.get_fullname(next_approver_row.approver_name)
+				doc.overall_status = f"Awaiting Approval from {next_name}"
+			else:
+				# Last approver approved
+				doc.event_status = "Approved"
+				doc.is_approved = 1
+				approver_name = frappe.utils.get_fullname(user)
+				doc.overall_status = f"Approved By {approver_name}"
+
+		elif action == "Reject":
+			# Rejected
+			doc.event_status = "Rejected"
+			doc.is_rejected = 1
+			approver_name = frappe.utils.get_fullname(user)
+			doc.overall_status = f"Rejected By {approver_name}"
+
+		doc.save(ignore_permissions=True)
+		
+		return {
+			"message": "Booking status updated successfully",
+			"status": doc.event_status,
+			"overall_status": doc.overall_status
+		}
+
+	except Exception as e:
+		frappe.log_error(title="Update Booking Status Error", message=str(e))
+		frappe.local.response['http_status_code'] = 500
+		return {"error": str(e)}
