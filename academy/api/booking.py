@@ -191,16 +191,7 @@ def get_user_booking_stats():
 
 @frappe.whitelist()
 def get_booking_list(page_number=1, page_length=20, academy=None, hall=None, status=None, search_name=None):
-	"""
-	Fetch list of bookings for the current user with pagination and filters using Frappe ORM.
-	Args:
-		page_number (int): Page number (default 1)
-		page_length (int): Items per page (default 20)
-		academy (str): Filter by Academy (optional)
-		hall (str): Filter by Hall (optional)
-		status (str): Filter by Event Status (optional)
-		search_name (str): Search by Booking ID (optional)
-	"""
+
 	try:
 		user = frappe.session.user
 		
@@ -223,12 +214,7 @@ def get_booking_list(page_number=1, page_length=20, academy=None, hall=None, sta
 		if search_name:
 			filters.append(["Booking", "booking_id", "like", f"%{search_name}%"])
 
-		# Hall Filter (Child Table)
-		# Optimized: We first find bookings that have this hall using get_all on the child table
-		# This avoids a potentially expensive subquery in Python if not handled well, 
-		# but is the standard ORM way to filter by child table.
 		if hall and hall != "all":
-			# Fetch parent booking names that have the specific hall
 			booking_names_with_hall = frappe.get_all(
 				"Event Planning Child", 
 				filters={"hall": hall}, 
@@ -265,7 +251,7 @@ def get_booking_list(page_number=1, page_length=20, academy=None, hall=None, sta
 		# Function to get full name (optimization: all rows have same owner currently)
 		user_full_name = frappe.utils.get_fullname(user)
 		for row in data:
-			row["owner"] = user_full_name
+			row["full_name"] = user_full_name
 
 
 		# Fetch Total Count using ORM
@@ -316,9 +302,7 @@ def get_booking_details(booking_id=None):
 				return {"message": "You are not authorized to view this booking."}
 
 		doc_dict = doc.as_dict()
-		
-		# Calculate can_approve flag
-		# Logic: User is in the 'approver' child table AND their specific row status is 'Awaiting'
+
 		can_approve = False
 		if doc.approver:
 			for approver_row in doc.approver:
@@ -410,6 +394,43 @@ def get_calendar_bookings(start_date=None, end_date=None, academy=None, hall=Non
 
 	except Exception as e:
 		frappe.log_error(title="Calendar Booking Error", message=str(e))
+		return []
+
+@frappe.whitelist(allow_guest=True)
+def get_upcoming_bookings():
+	"""
+	Fetch the latest 3 upcoming approved bookings.
+	Returns bookings where event_start_date >= today, ordered by start date ascending.
+	"""
+	try:
+		today = frappe.utils.nowdate()
+		
+		filters = [
+			["event_start_date", ">=", today]
+		]
+		
+		# Only approved bookings
+		or_filters = {
+			"event_status": "Approved",
+			"is_approved": 1
+		}
+
+		bookings = frappe.get_all(
+			"Booking",
+			filters=filters,
+			or_filters=or_filters,
+			fields=[
+				"name", "booking_id", "event_title", "event_start_date", "event_end_date", 
+				"event_status", "academy", "full_name","no_of_participants"
+			],
+			order_by="event_start_date asc",
+			limit=3
+		)
+		
+		return bookings
+
+	except Exception as e:
+		frappe.log_error(title="Upcoming Bookings Error", message=str(e))
 		return []
 
 @frappe.whitelist()
