@@ -3,7 +3,9 @@
 
 # import frappe
 from frappe.model.document import Document
-
+from frappe.model.naming import make_autoname
 
 class HallMaster(Document):
-	pass
+    def autoname(self):
+        prefix = f"{self.academy_name}-{self.hall_name}-"
+        self.name = make_autoname(prefix + ".####")
