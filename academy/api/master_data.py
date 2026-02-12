@@ -3,10 +3,6 @@ from frappe import _
 
 @frappe.whitelist(allow_guest=True)
 def get_master_data():
-	"""
-	Fetch Master Company, Department Master, Booking Type, and IT Requirements.
-	Access is restricted to logged-in users.
-	"""
 	if frappe.session.user == "Guest":
 		frappe.throw(_("Please login to access this API"), frappe.PermissionError)
 
