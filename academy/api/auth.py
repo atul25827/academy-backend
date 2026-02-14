@@ -76,3 +76,32 @@ def logout():
         "success_key": 1,
         "message": "Logged Out Successfully"
     }
+
+@frappe.whitelist()
+def get_logged_user():
+    # 1. Verify Session
+    if frappe.session.user == 'Guest':
+        frappe.throw("Invalid Session", frappe.PermissionError)
+    
+    # 2. Fetch User Details
+    user = frappe.get_doc("User", frappe.session.user)
+    roles = frappe.get_roles(user.name)
+    
+    # 3. Determine Academy Role
+    user_role = "Academy User"
+    if "System Manager" in roles or "Academy Admin" in roles:
+        user_role = "Academy Admin"
+        
+    # 4. Fetch Employee Code
+    employee_code = None
+    if frappe.db.exists("Master Employee", {"linked_user": user.name}):
+        employee_code = frappe.db.get_value("Master Employee", {"linked_user": user.name}, "employee_code")
+    
+    return {
+        "user_id": user.name,
+        "full_name": user.full_name,
+        "email": user.email,
+        "role": user_role,
+        "employee_code": employee_code,
+        "image": user.user_image
+    }
