@@ -7,6 +7,7 @@
  "field_order": [
   "link_doc",
   "academy",
+  "matrix_type",
   "approver_type",
   "user",
   "approvers"
@@ -41,11 +42,17 @@
    "fieldtype": "Link",
    "label": "Doctype Name",
    "options": "DocType"
+  },
+  {
+   "fieldname": "matrix_type",
+   "fieldtype": "Select",
+   "label": "Matrix Type",
+   "options": "Approve\nCancel"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-01-28 16:16:27.028478",
+ "modified": "2026-02-14 09:51:10.220156",
  "modified_by": "Administrator",
  "module": "academy",
  "name": "Academy Approval Matrix",

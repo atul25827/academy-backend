@@ -8,6 +8,7 @@
  "field_order": [
   "booking_details_tab",
   "booking_id",
+  "event_type",
   "academy",
   "merilian_code",
   "full_name",
@@ -20,10 +21,12 @@
   "event_start_date",
   "event_end_date",
   "no_of_participants",
+  "no_of_participants_international",
   "it_requirement",
   "specific_requirement_if_any",
   "mats_event",
   "mats_request_number",
+  "comment",
   "tab_2_tab",
   "event_status",
   "overall_status",
@@ -31,11 +34,16 @@
   "is_rejected",
   "is_approved",
   "attendence_submitted",
+  "is_cancelled",
+  "cancel_comment",
+  "booking_status",
+  "cancel_request",
   "event_plan_tab",
   "event_planning",
   "approver_tab",
   "approver_section",
   "approver",
+  "cancel_approver",
   "attachment_tab",
   "table_trig"
  ],
@@ -138,10 +146,11 @@
    "label": "Status"
   },
   {
+   "default": "Pending",
    "fieldname": "event_status",
    "fieldtype": "Select",
    "label": "Event Status",
-   "options": "Submitted\nPending\nAwaiting\nApproved\nRejected\nAttendence Submitted"
+   "options": "Pending\nSubmitted\nAwaiting\nApproved\nRejected\nAttendence Submitted\nCancel Request\nRejected Cancel Request\nCancelled"
   },
   {
    "fieldname": "overall_status",
@@ -180,6 +189,7 @@
   {
    "fieldname": "event_planning",
    "fieldtype": "Table",
+   "in_standard_filter": 1,
    "label": "Event Planning",
    "options": "Event Planning Child"
   },
@@ -196,6 +206,7 @@
   {
    "fieldname": "approver",
    "fieldtype": "Table",
+   "in_standard_filter": 1,
    "label": "Approver",
    "options": "Approver Child"
   },
@@ -214,11 +225,56 @@
    "fieldname": "specific_requirement_if_any",
    "fieldtype": "Small Text",
    "label": "Specific Requirement If Any"
+  },
+  {
+   "fieldname": "event_type",
+   "fieldtype": "Select",
+   "label": "Event Type",
+   "options": "Domestic\nInternational\nBoth"
+  },
+  {
+   "fieldname": "no_of_participants_international",
+   "fieldtype": "Int",
+   "label": "No of Participants International"
+  },
+  {
+   "fieldname": "comment",
+   "fieldtype": "Data",
+   "label": "Comment"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_cancelled",
+   "fieldtype": "Check",
+   "label": "Is Cancelled"
+  },
+  {
+   "fieldname": "cancel_approver",
+   "fieldtype": "Table",
+   "in_standard_filter": 1,
+   "label": "Cancel Approver",
+   "options": "Approver Child"
+  },
+  {
+   "fieldname": "cancel_comment",
+   "fieldtype": "Data",
+   "label": "Cancel Comment"
+  },
+  {
+   "fieldname": "booking_status",
+   "fieldtype": "Data",
+   "label": "Booking Status"
+  },
+  {
+   "default": "0",
+   "fieldname": "cancel_request",
+   "fieldtype": "Check",
+   "label": "Cancel Request"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-01-28 16:31:39.674731",
+ "modified": "2026-02-16 10:27:45.229727",
  "modified_by": "Administrator",
  "module": "academy",
  "name": "Booking",

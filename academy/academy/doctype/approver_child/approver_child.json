@@ -15,29 +15,33 @@
   {
    "fieldname": "approver_name",
    "fieldtype": "Data",
+   "in_list_view": 1,
    "label": "Approver Name"
   },
   {
    "fieldname": "approver_status",
    "fieldtype": "Select",
+   "in_list_view": 1,
    "label": "Approver Status",
    "options": "Pending\nAwaiting\nApproved\nRejected"
   },
   {
    "fieldname": "remark",
    "fieldtype": "Data",
+   "in_list_view": 1,
    "label": "Remark"
   },
   {
    "fieldname": "level",
    "fieldtype": "Data",
+   "in_list_view": 1,
    "label": "level"
   }
  ],
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-01-28 12:21:56.105557",
+ "modified": "2026-02-14 12:14:24.278924",
  "modified_by": "Administrator",
  "module": "academy",
  "name": "Approver Child",
