@@ -62,6 +62,7 @@ def create_booking(**kwargs):
 		# Fetch the full name of the approver for the status message if needed, or just use the ID if that's what 'approver_name' stores (Likely User ID)
 		first_approver_name = frappe.db.get_value("User", first_approver, "full_name") or first_approver
 		data['overall_status'] = f"Awaiting Approval from {first_approver_name}"
+		data['booking_status'] = "Booking Submitted"
 
 		# Populate Approver Child Table
 		# We need to construct the list of dicts for the child table
@@ -84,6 +85,14 @@ def create_booking(**kwargs):
 		doc = frappe.get_doc(data)
 		doc.insert(ignore_permissions=True) # or False depending on need. Using True for now to strict API control.
 
+		# Log Action
+		# log_booking_action needs to be defined in scope or imported
+		# Assuming it's in the same file now
+		try:
+			log_booking_action(doc.name, "Created", status="Pending", comment="Initial Request from Create Booking")
+		except:
+			pass
+
 		return {
 			"message": "Booking Created Successfully",
 			"name": doc.name,
@@ -96,6 +105,90 @@ def create_booking(**kwargs):
 		return {
 			"error": str(e)
 		}
+
+def log_booking_action(booking_id, action, comment=None, remark=None, status=None):
+	"""
+	Helper to create a Booking Log entry.
+	"""
+	try:
+		user = frappe.session.user
+		
+		# Determine Role for this action
+		# Simple heuristic: If Owner -> Requestor, if Admin -> Admin, if Approver -> Approver
+		# But this is context sensitive. Let's just store the primary role of the user or a generic label.
+		# Or pass it as an argument? Let's infer.
+		
+		# Fetch Booking just to check owner if needed, but logging should be fast.
+		# Let's just use 'System Role' or specific if passed.
+		# For now, let's fetch roles and pick the "highest" relevant one.
+		roles = frappe.get_roles(user)
+		user_role = "User"
+		if "System Manager" in roles or "Academy Admin" in roles:
+			user_role = "Admin" 
+		elif "Academy User" in roles: # Assuming this role exists
+			user_role = "Requestor"
+		
+		# Refine: If user is the owner of the booking
+		try:
+			owner = frappe.db.get_value("Booking", booking_id, "owner")
+			if owner == user:
+				user_role = "Requestor" # Override if owner
+			
+			# If action implies approval
+			if action in ["Approved", "Rejected", "Cancellation Approved", "Cancellation Rejected"]:
+				user_role = "Approver"
+		except:
+			pass
+
+		log = frappe.metrics_counter = frappe.get_doc({
+			"doctype": "Booking Log",
+			"booking": booking_id,
+			"action": action,
+			"action_by": user,
+			"user_role": user_role,
+			"comment": comment,
+			"remark": remark,
+			"status": status or frappe.db.get_value("Booking", booking_id, "event_status")
+		})
+		log.insert(ignore_permissions=True)
+
+	except Exception as e:
+		frappe.log_error(title="Booking Log Error", message=str(e))
+
+@frappe.whitelist()
+def get_booking_audit_trail(booking_id):
+	"""
+	Fetch audit trail logs for a booking.
+	"""
+	try:
+		if not frappe.db.exists("Booking", booking_id):
+			return {"message": []}
+
+		logs = frappe.get_all("Booking Log", 
+			filters={"booking": booking_id},
+			fields=["creation", "action", "action_by", "user_role", "comment", "status", "remark"],
+			order_by="creation asc"
+		)
+		
+		timeline = []
+		for log in logs:
+			full_name = frappe.utils.get_fullname(log.action_by)
+			# Fetch Employee Code if needed, but Name is usually enough
+			
+			timeline.append({
+				"timestamp": log.creation,
+				"action": log.action,
+				"user": full_name, # or f"{full_name} ({log.action_by})"
+				"user_role": log.user_role,
+				"comment": log.comment or log.remark, # Show whichever exists
+				"status": log.status
+			})
+			
+		return {"message": timeline}
+
+	except Exception as e:
+		frappe.log_error("Audit Trail Error", str(e))
+		return {"message": []}
 
 def generate_booking_id():
 	"""
@@ -167,7 +260,8 @@ def get_user_booking_stats():
 				COUNT(*) as total_bookings,
 				SUM(CASE WHEN is_approved = 1 OR event_status = 'Approved' THEN 1 ELSE 0 END) as total_approved,
 				SUM(CASE WHEN event_status = 'Pending' THEN 1 ELSE 0 END) as total_pending,
-				SUM(CASE WHEN event_status = 'Rejected' THEN 1 ELSE 0 END) as total_rejected
+				SUM(CASE WHEN event_status = 'Rejected' THEN 1 ELSE 0 END) as total_rejected,
+				SUM(CASE WHEN event_status = 'Cancelled' THEN 1 ELSE 0 END) as total_cancel
 			FROM `tabBooking`
 			WHERE owner = %s
 		""", (user,), as_dict=True)
@@ -178,7 +272,8 @@ def get_user_booking_stats():
 			"total_bookings": int(result.get("total_bookings") or 0),
 			"total_approved": int(result.get("total_approved") or 0),
 			"total_pending": int(result.get("total_pending") or 0),
-			"total_rejected": int(result.get("total_rejected") or 0)
+			"total_rejected": int(result.get("total_rejected") or 0),
+			"total_cancel": int(result.get("total_cancel") or 0)
 		}
 
 	except Exception as e:
@@ -241,7 +336,7 @@ def get_booking_list(page_number=1, page_length=20, academy=None, hall=None, sta
 			filters=filters,
 			fields=[
 				"name", "booking_id", "academy", "event_title", "event_status",
-				"event_start_date", "event_end_date", "overall_status", "creation", "owner"
+				"event_start_date", "event_end_date", "overall_status", "creation", "owner","booking_status"
 			],
 			order_by="creation desc",
 			start=start,
@@ -322,7 +417,7 @@ def get_booking_details(booking_id=None):
 
 		# Check Cancel Approval Permission
 		can_cancel = False
-		if doc.event_status == "Cancel Request" and doc.cancel_approver:
+		if doc.cancel_request and doc.cancel_approver:
 			for approver_row in doc.cancel_approver:
 				if approver_row.approver_name == user and approver_row.approver_status == "Awaiting":
 					can_cancel = True
@@ -471,22 +566,38 @@ def get_approver_stats():
 		approver_bookings = frappe.get_all("Approver Child", filters={"approver_name": user}, pluck="parent")
 		
 		# Union of both sets
-		total_bookings_count = len(set(owner_bookings + approver_bookings))
+		allowed_ids = set(owner_bookings + approver_bookings)
 
-		# 2. Approved by User
-		total_approved = frappe.db.count("Approver Child", filters={"approver_name": user, "approver_status": "Approved"})
+		if not allowed_ids:
+			return {
+				"total_bookings": 0,
+				"total_approved": 0,
+				"total_rejected": 0,
+				"total_pending": 0,
+				"total_cancel": 0
+			}
 
-		# 3. Rejected by User
-		total_rejected = frappe.db.count("Approver Child", filters={"approver_name": user, "approver_status": "Rejected"})
+		allowed_list = list(allowed_ids)
+		total_bookings_count = len(allowed_list)
 
-		# 4. Pending (Awaiting Action from User)
-		total_pending = frappe.db.count("Approver Child", filters={"approver_name": user, "approver_status": "Awaiting"})
+		# 2. Approved
+		total_approved = frappe.db.count("Booking", filters={"name": ["in", allowed_list], "event_status": "Approved"})
+
+		# 3. Rejected
+		total_rejected = frappe.db.count("Booking", filters={"name": ["in", allowed_list], "event_status": "Rejected"})
+
+		# 4. Pending (Includes 'Pending', 'Submitted', 'Awaiting')
+		total_pending = frappe.db.count("Booking", filters={"name": ["in", allowed_list], "event_status": ["in", ["Pending", "Submitted", "Awaiting", "Cancel Request"]]})
+
+		# 5. Cancelled
+		total_cancelled = frappe.db.count("Booking", filters={"name": ["in", allowed_list], "event_status": "Cancelled"})
 
 		return {
 			"total_bookings": total_bookings_count,
-			"total_approved": total_approved,
-			"total_rejected": total_rejected,
-			"total_pending": total_pending
+			"total_approved": total_approved, # Bookings that are fully approved
+			"total_rejected": total_rejected, # Bookings that are fully rejected
+			"total_pending": total_pending,   # Bookings In Progress
+			"total_cancel": total_cancelled   # Bookings Cancelled
 		}
 	except Exception as e:
 		frappe.log_error(title="Approver Stats Error", message=str(e))
@@ -531,12 +642,25 @@ def get_approver_booking_list(page_number=1, page_length=10, status=None, search
 		# 3. Status Filter
 		if status and status != "all":
 			if status == "Awaiting":
-				# Special case: Filter bookings where THIS user has 'Awaiting' status in approver child table
-				awaiting_bookings = frappe.get_all(
+				# Special case: Filter bookings where THIS user has 'Awaiting' status in approver child table or cancel_approver table
+				
+				# 1. Regular Approvals
+				awaiting_approval = frappe.get_all(
 					"Approver Child", 
 					filters={"approver_name": user, "approver_status": "Awaiting"}, 
 					pluck="parent"
 				)
+
+				# 2. Cancel Approvals
+				awaiting_cancellation = frappe.get_all(
+					"Approver Child",
+					filters={"approver_name": user, "approver_status": "Awaiting"},
+					pluck="parent",
+					distinct=True
+				)
+				
+				awaiting_bookings = awaiting_approval
+
 				if not awaiting_bookings:
 					return {
 						"data": [], "total_count": 0, "page_length": page_length, 
@@ -641,11 +765,11 @@ def update_booking_status(booking_id, action, remark=None, request_type="booking
 		if request_type == "cancel_request":
 			table_field = "cancel_approver"
 			# For cancellation, ensure we are actually in a Cancel Request state
-			if doc.event_status != "Cancel Request":
+			if not doc.cancel_request:
 				return {"message": "Booking is not in 'Cancel Request' status."}
 		else:
 			table_field = "approver"
-			if doc.event_status == "Cancel Request":
+			if doc.cancel_request:
 				return {"message": "Booking is pending cancellation approval. Please use request_type='cancel_request'."}
 
 		child_table = getattr(doc, table_field)
@@ -697,39 +821,57 @@ def update_booking_status(booking_id, action, remark=None, request_type="booking
 				if request_type == "cancel_request":
 					# Finalize Cancellation
 					doc.event_status = "Cancelled"
+					doc.booking_status = "Cancellation Approved"
+					doc.cancel_request = 0
 					doc.is_cancelled = 1
 					doc.is_approved = 0  # No longer considered 'Approved' since it's cancelled
 					doc.overall_status = f"Cancellation Approved By {current_approver_name}"
 				else:
 					# Finalize Booking Approval
 					doc.event_status = "Approved"
+					doc.booking_status = "Booking Approved"
 					doc.is_approved = 1
 					doc.overall_status = f"Approved By {current_approver_name}"
 
 		elif action == "Reject":
 			# Rejected Logic
 			if request_type == "cancel_request":
-				# Cancellation request rejected -> Revert to previous Approved state? 
-				# Typically 'Rejected' means the cancellation is denied, so the booking remains valid (Approved).
-				# Or it stays as 'Approved' if it was already approved.
-				# Let's assume we revert to 'Approved' status if it was approved, or whatever previous state.
-				# Simpler approach: Just mark status as 'Approved' again if it was valid, or keep as is?
-				# Usually: "Cancellation Rejected" means booking stays Active.
 				if doc.is_approved:
 					doc.event_status = "Approved"
+					doc.booking_status = "Cancellation Rejected"
+					doc.cancel_request = 0
 					doc.overall_status = f"Cancellation Rejected By {current_approver_name}"
 				else:
 					# If it wasn't approved yet? Rare case for cancellation.
-					doc.event_status = "Pending" 
+					doc.event_status = "Pending"
+					doc.booking_status = "Cancellation Rejected"
 					doc.overall_status = f"Cancellation Rejected By {current_approver_name}"
 			else:
 				# Booking Request Rejected
 				doc.event_status = "Rejected"
 				doc.is_rejected = 1
+				doc.booking_status = "Booking Rejected"
 				doc.overall_status = f"Rejected By {current_approver_name}"
+
 
 		doc.save(ignore_permissions=True)
 		
+		# Log Action
+		try:
+			action_label = f"{action}d" # Approved or Rejected
+			if request_type == "cancel_request":
+				action_label = f"Cancellation {action_label}"
+			
+			log_booking_action(
+				booking_id, 
+				action_label, 
+				status=doc.event_status, 
+				comment=remark,
+				remark=doc.overall_status # Log the overall status change in remark
+			)
+		except:
+			pass
+
 		return {
 			"message": "Status updated successfully",
 			"status": doc.event_status,
@@ -900,35 +1042,74 @@ def update_booking_event_planning(booking_id, event_planning_data, no_of_partici
 		if no_of_participants_international is not None:
 			doc.no_of_participants_international = no_of_participants_international
 
+
+		# Track changes for logging
+		event_planning_changes = []
+
 		# 3. Iterate and Update/Add
 		for row_data in event_planning_data:
 			row_name = row_data.get("name")
 			
 			if row_name:
 				# --- UPDATE EXISTING ROW ---
-				# precise lookup in child table
 				found = False
 				for child in doc.event_planning:
 					if child.name == row_name:
+						# Log changes for this row
+						changes = []
+						if row_data.get("hall") and row_data.get("hall") != child.hall:
+							old_hall = frappe.db.get_value("Hall Master", child.hall, "hall_name") or child.hall
+							new_hall = frappe.db.get_value("Hall Master", row_data.get("hall"), "hall_name") or row_data.get("hall")
+							changes.append(f"Hall changed from {old_hall} to {new_hall}")
+						
+						if row_data.get("booking_type") and row_data.get("booking_type") != child.booking_type:
+							changes.append(f"Booking Type changed from {child.booking_type} to {row_data.get('booking_type')}")
+
+						if changes:
+							event_planning_changes.append(f"Row {child.idx}: {', '.join(changes)}")
+
+						# Apply updates
 						child.hall = row_data.get("hall") or child.hall
 						child.booking_type = row_data.get("booking_type") or child.booking_type
 						found = True
 						break
 				if not found:
-					# Edge case: row name provided but not found in this parent. 
-					# Could throw error or just add as new. Let's add as new safely.
+					# Edge case: row name provided but not found, treated as new
+					h_name = frappe.db.get_value("Hall Master", row_data.get("hall"), "hall_name") or row_data.get("hall")
+					event_planning_changes.append(f"Added new row for Hall: {h_name}")
 					doc.append("event_planning", {
 						"hall": row_data.get("hall"),
 						"booking_type": row_data.get("booking_type")
 					})
 			else:
 				# --- ADD NEW ROW ---
+				h_name = frappe.db.get_value("Hall Master", row_data.get("hall"), "hall_name") or row_data.get("hall")
+				event_planning_changes.append(f"Added new row for Hall: {h_name}")
 				doc.append("event_planning", {
 					"hall": row_data.get("hall"),
-						"booking_type": row_data.get("booking_type")
-					})
+					"booking_type": row_data.get("booking_type")
+				})
+
 
 		doc.save(ignore_permissions=True)
+		
+		try:
+			details = []
+			if no_of_participants is not None:
+				details.append(f"No. of Participants updated to {no_of_participants}")
+			if no_of_participants_international is not None:
+				details.append(f"No. of International Participants updated to {no_of_participants_international}")
+			
+			if event_planning_changes:
+				details.extend(event_planning_changes)
+			
+			log_comment = "Updated Event Planning details."
+			if details:
+				log_comment = "\n".join(details)
+				
+			log_booking_action(booking_id, "Plan Updated", comment=log_comment, remark="Updated by Admin")
+		except:
+			pass
 
 		return {
 			"message": "Booking updated successfully.",
@@ -998,7 +1179,9 @@ def cancel_booking(booking_id, cancel_comment=None):
 			})
 		
 		# Update Status
-		doc.event_status = "Cancel Request"
+		# doc.event_status = "Cancel Request"
+		doc.booking_status = "Cancellation Requested"
+		doc.cancel_request = 1
 		if cancel_comment:
 			doc.cancel_comment = cancel_comment
 
@@ -1007,9 +1190,19 @@ def cancel_booking(booking_id, cancel_comment=None):
 			full_name = frappe.utils.get_fullname(first_approver_name)
 			doc.overall_status = f"Awaiting Cancellation Approval from {full_name}"
 		else:
-			doc.overall_status = "Cancel Request Approved"
+			doc.overall_status = "Cancellation Request Approved"
 
 		doc.save(ignore_permissions=True)
+		
+		try:
+			log_booking_action(
+				booking_id, 
+				"Cancellation Requested", 
+				comment=cancel_comment, 
+				status="Cancel Request"
+			)
+		except:
+			pass
 
 		return {
 			"message": "Cancellation request submitted successfully",

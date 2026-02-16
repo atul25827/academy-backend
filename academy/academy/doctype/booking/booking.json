@@ -36,6 +36,8 @@
   "attendence_submitted",
   "is_cancelled",
   "cancel_comment",
+  "booking_status",
+  "cancel_request",
   "event_plan_tab",
   "event_planning",
   "approver_tab",
@@ -187,6 +189,7 @@
   {
    "fieldname": "event_planning",
    "fieldtype": "Table",
+   "in_standard_filter": 1,
    "label": "Event Planning",
    "options": "Event Planning Child"
   },
@@ -203,6 +206,7 @@
   {
    "fieldname": "approver",
    "fieldtype": "Table",
+   "in_standard_filter": 1,
    "label": "Approver",
    "options": "Approver Child"
   },
@@ -247,6 +251,7 @@
   {
    "fieldname": "cancel_approver",
    "fieldtype": "Table",
+   "in_standard_filter": 1,
    "label": "Cancel Approver",
    "options": "Approver Child"
   },
@@ -254,11 +259,22 @@
    "fieldname": "cancel_comment",
    "fieldtype": "Data",
    "label": "Cancel Comment"
+  },
+  {
+   "fieldname": "booking_status",
+   "fieldtype": "Data",
+   "label": "Booking Status"
+  },
+  {
+   "default": "0",
+   "fieldname": "cancel_request",
+   "fieldtype": "Check",
+   "label": "Cancel Request"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-02-14 10:22:57.086131",
+ "modified": "2026-02-16 10:27:45.229727",
  "modified_by": "Administrator",
  "module": "academy",
  "name": "Booking",
