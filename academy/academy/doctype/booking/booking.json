@@ -45,7 +45,7 @@
   "approver",
   "cancel_approver",
   "attachment_tab",
-  "table_trig"
+  "attendence_attachment"
  ],
  "fields": [
   {
@@ -216,12 +216,6 @@
    "label": "Attachment"
   },
   {
-   "fieldname": "table_trig",
-   "fieldtype": "Table",
-   "label": "Attachment",
-   "options": "Attachment"
-  },
-  {
    "fieldname": "specific_requirement_if_any",
    "fieldtype": "Small Text",
    "label": "Specific Requirement If Any"
@@ -270,11 +264,17 @@
    "fieldname": "cancel_request",
    "fieldtype": "Check",
    "label": "Cancel Request"
+  },
+  {
+   "fieldname": "attendence_attachment",
+   "fieldtype": "Table",
+   "label": "Attachment",
+   "options": "Attachment"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-02-16 10:27:45.229727",
+ "modified": "2026-02-28 16:31:26.924326",
  "modified_by": "Administrator",
  "module": "academy",
  "name": "Booking",
