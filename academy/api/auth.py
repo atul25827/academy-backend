@@ -40,12 +40,12 @@ def login(usr, pwd):
     # Setting Cookies
     # SID is handled automatically by post_login usually, but we ensure our custom ones
     frappe.local.cookie_manager.set_cookie("user_id", user.name)
-    frappe.local.cookie_manager.set_cookie("role", role)
+    # frappe.local.cookie_manager.set_cookie("role", role)
     frappe.local.cookie_manager.set_cookie("full_name", user.full_name)
     frappe.local.cookie_manager.set_cookie("sid", frappe.session.sid)
     
-    if employee_code:
-        frappe.local.cookie_manager.set_cookie("employee_code", employee_code)
+    # if employee_code:
+    #     frappe.local.cookie_manager.set_cookie("employee_code", employee_code)
 
     # Remove default keys added by post_login
     if "home_page" in frappe.local.response:
@@ -58,30 +58,20 @@ def login(usr, pwd):
         "message": "Logged In Successfully",
         "sid": frappe.session.sid,
         "user_id": user.name,
-        "role": role,
+        # "role": role,
         "full_name": user.full_name,
-        "employee_code": employee_code
+        # "employee_code": employee_code
     }
 
-@frappe.whitelist()
-def logout():
-    frappe.local.login_manager.logout()
-    frappe.local.cookie_manager.delete_cookie("user_id")
-    frappe.local.cookie_manager.delete_cookie("role")
-    frappe.local.cookie_manager.delete_cookie("full_name")
-    frappe.local.cookie_manager.delete_cookie("sid")
-    frappe.local.cookie_manager.delete_cookie("employee_code")
-
-    return {
-        "success_key": 1,
-        "message": "Logged Out Successfully"
-    }
-
-@frappe.whitelist()
+@frappe.whitelist(allow_guest=True)
 def get_logged_user():
     # 1. Verify Session
     if frappe.session.user == 'Guest':
-        frappe.throw("Invalid Session", frappe.PermissionError)
+        frappe.local.response['http_status_code'] = 401
+        return {
+            "success_key": 0,
+            "message": "Session expired or invalid. Please login again."
+        }
     
     # 2. Fetch User Details
     user = frappe.get_doc("User", frappe.session.user)
@@ -98,6 +88,7 @@ def get_logged_user():
         employee_code = frappe.db.get_value("Master Employee", {"linked_user": user.name}, "employee_code")
     
     return {
+        "success_key": 1,
         "user_id": user.name,
         "full_name": user.full_name,
         "email": user.email,

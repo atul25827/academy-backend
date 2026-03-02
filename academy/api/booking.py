@@ -887,7 +887,7 @@ def update_booking_status(booking_id, action, remark=None, request_type="booking
 		
 		# Log Action
 		try:
-			action_label = f"{action}d" # Approved or Rejected
+			action_label = "Approved" if action == "Approve" else "Rejected"
 			if request_type == "cancel_request":
 				action_label = f"Cancellation {action_label}"
 			
@@ -1208,7 +1208,7 @@ def cancel_booking(booking_id, cancel_comment=None):
 			})
 		
 		# Update Status
-		# doc.event_status = "Cancel Request"
+		doc.event_status = "Cancel Request"
 		doc.booking_status = "Cancellation Requested"
 		doc.cancel_request = 1
 		if cancel_comment:
@@ -1297,11 +1297,15 @@ def upload_attendance(booking_id=None):
 			frappe.local.response['http_status_code'] = 400
 			return {"message": "No files uploaded. Please attach at least one file."}
 
+		# Collect all files across all keys (handles same-key duplicates like files[])
+		all_files = []
+		for key in set(uploaded_files.keys()):
+			all_files.extend(uploaded_files.getlist(key))
+
 		doc = frappe.get_doc("Booking", bid)
 		saved_files = []
 
-		for file_key in uploaded_files:
-			filedata = uploaded_files[file_key]
+		for filedata in all_files:
 			content = filedata.read()
 			filename = filedata.filename
 
