@@ -425,6 +425,35 @@ def get_booking_details(booking_id=None):
 		
 		doc_dict["can_cancel"] = can_cancel
 
+		# Attendance fields
+		doc_dict["attendance_submitted"] = doc.attendence_submitted or 0
+		doc_dict["attendance_files"] = [
+			{"file_name": row.file.rsplit("/", 1)[-1] if row.file else "", "file_url": row.file}
+			for row in (doc.attendence_attachment or [])
+			if not row.is_deleted and row.file
+		]
+
+		# Can submit attendance: owner + approved + not cancelled + event ended + not already submitted
+		can_submit = (
+			user == doc.owner
+			and doc.is_approved
+			and not doc.is_cancelled
+			and not doc.attendence_submitted
+			and doc.event_end_date
+			and getdate(doc.event_end_date) < getdate(nowdate())
+		)
+		doc_dict["can_submit_attendence"] = bool(can_submit)
+
+		# Is cancellable: approved + not cancelled + no cancel request + event not started
+		is_cancellable = (
+			not doc.is_cancelled
+			and not doc.cancel_request
+			and doc.event_status == "Approved"
+			and doc.event_start_date
+			and getdate(doc.event_start_date) > getdate(nowdate())
+		)
+		doc_dict["is_cancellable"] = bool(is_cancellable)
+
 		if "approver" in doc_dict:
 			del doc_dict["approver"]
 
@@ -858,7 +887,7 @@ def update_booking_status(booking_id, action, remark=None, request_type="booking
 		
 		# Log Action
 		try:
-			action_label = f"{action}d" # Approved or Rejected
+			action_label = "Approved" if action == "Approve" else "Rejected"
 			if request_type == "cancel_request":
 				action_label = f"Cancellation {action_label}"
 			
@@ -1179,7 +1208,7 @@ def cancel_booking(booking_id, cancel_comment=None):
 			})
 		
 		# Update Status
-		# doc.event_status = "Cancel Request"
+		doc.event_status = "Cancel Request"
 		doc.booking_status = "Cancellation Requested"
 		doc.cancel_request = 1
 		if cancel_comment:
@@ -1212,5 +1241,157 @@ def cancel_booking(booking_id, cancel_comment=None):
 
 	except Exception as e:
 		frappe.log_error(title="Cancel Booking Error", message=str(e))
+		frappe.local.response['http_status_code'] = 500
+		return {"error": str(e)}
+
+@frappe.whitelist()
+def upload_attendance(booking_id=None):
+	"""
+	POST: Upload attendance files for a booking and mark attendance as submitted.
+	Accepts booking_id + multipart file uploads.
+	"""
+	try:
+		bid = booking_id or frappe.form_dict.get("booking_id")
+		if not bid:
+			frappe.local.response['http_status_code'] = 400
+			return {"message": "booking_id is required."}
+
+		# Single DB hit to fetch all needed fields + permission check
+		booking_meta = frappe.db.get_value(
+			"Booking", bid,
+			["name", "owner", "is_approved", "event_end_date", "attendence_submitted"],
+			as_dict=True
+		)
+
+		if not booking_meta:
+			frappe.local.response['http_status_code'] = 404
+			return {"message": "Booking not found."}
+
+		user = frappe.session.user
+
+		# Permission: owner or admin
+		# if user != "Administrator" and user != booking_meta.owner:
+		# 	roles = frappe.get_roles(user)
+		# 	if "Academy Admin" not in roles and "System Manager" not in roles:
+		# 		frappe.local.response['http_status_code'] = 403
+		# 		return {"message": "Not authorized to upload attendance for this booking."}
+
+		# Guard: must be Approved
+		if not booking_meta.is_approved:
+			frappe.local.response['http_status_code'] = 400
+			return {"message": "Attendance can only be uploaded for approved bookings."}
+
+		# Guard: event must have ended
+		if booking_meta.event_end_date and getdate(booking_meta.event_end_date) >= getdate(nowdate()):
+			frappe.local.response['http_status_code'] = 400
+			return {"message": "Attendance can only be uploaded after the event has ended."}
+
+		# Guard: not already submitted
+		if booking_meta.attendence_submitted:
+			frappe.local.response['http_status_code'] = 400
+			return {"message": "Attendance has already been submitted for this booking."}
+
+		# Process uploaded files
+		uploaded_files = frappe.request.files
+		if not uploaded_files:
+			frappe.local.response['http_status_code'] = 400
+			return {"message": "No files uploaded. Please attach at least one file."}
+
+		# Collect all files across all keys (handles same-key duplicates like files[])
+		all_files = []
+		for key in set(uploaded_files.keys()):
+			all_files.extend(uploaded_files.getlist(key))
+
+		doc = frappe.get_doc("Booking", bid)
+		saved_files = []
+
+		for filedata in all_files:
+			content = filedata.read()
+			filename = filedata.filename
+
+			# Save via Frappe file manager
+			file_doc = frappe.get_doc({
+				"doctype": "File",
+				"file_name": filename,
+				"content": content,
+				"attached_to_doctype": "Booking",
+				"attached_to_name": bid,
+				"is_private": 1
+			})
+			file_doc.save(ignore_permissions=True)
+
+			# Append to the child table
+			doc.append("attendence_attachment", {
+				"file": file_doc.file_url
+			})
+
+			saved_files.append({
+				"file_name": filename,
+				"file_url": file_doc.file_url
+			})
+
+		# Mark attendance as submitted
+		doc.attendence_submitted = 1
+		doc.event_status = "Attendence Submitted"
+		doc.save(ignore_permissions=True)
+
+		# Log
+		try:
+			log_booking_action(
+				bid,
+				"Attendance Uploaded",
+				comment=f"{len(saved_files)} file(s) uploaded",
+				status=doc.event_status
+			)
+		except Exception:
+			pass
+
+		return {
+			"message": "Attendance uploaded successfully.",
+			"files": saved_files
+		}
+
+	except Exception as e:
+		frappe.log_error(title="Upload Attendance Error", message=str(e))
+		frappe.local.response['http_status_code'] = 500
+		return {"error": str(e)}
+
+
+@frappe.whitelist()
+def check_pending_attendance():
+	"""
+	GET: Returns bookings owned by the current user where:
+	  - event_end_date < today
+	  - attendence_submitted = 0
+	  - event_status = 'Approved'
+	"""
+	try:
+		user = frappe.session.user
+		if user == "Guest":
+			frappe.local.response['http_status_code'] = 401
+			return {"message": "Unauthorized. Please login."}
+
+		today = nowdate()
+
+		pending = frappe.get_all(
+			"Booking",
+			filters={
+				"owner": user,
+				"event_end_date": ["<", today],
+				"attendence_submitted": 0,
+				"is_approved": 1,
+				"is_cancelled": 0
+			},
+			fields=[
+				"name", "booking_id", "event_title", "academy",
+				"event_start_date", "event_end_date", "event_status"
+			],
+			order_by="event_end_date desc"
+		)
+
+		return {"data": pending}
+
+	except Exception as e:
+		frappe.log_error(title="Check Pending Attendance Error", message=str(e))
 		frappe.local.response['http_status_code'] = 500
 		return {"error": str(e)}
