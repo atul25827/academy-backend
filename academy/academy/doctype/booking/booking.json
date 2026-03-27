@@ -30,14 +30,15 @@
   "tab_2_tab",
   "event_status",
   "overall_status",
+  "booking_status",
   "is_submitted",
   "is_rejected",
   "is_approved",
-  "attendence_submitted",
   "is_cancelled",
-  "cancel_comment",
-  "booking_status",
   "cancel_request",
+  "attendence_submitted",
+  "cancel_comment",
+  "is_deleted",
   "event_plan_tab",
   "event_planning",
   "approver_tab",
@@ -270,11 +271,17 @@
    "fieldtype": "Table",
    "label": "Attachment",
    "options": "Attachment"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_deleted",
+   "fieldtype": "Check",
+   "label": "Is Deleted"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-02-28 16:31:26.924326",
+ "modified": "2026-03-24 20:19:31.065921",
  "modified_by": "Administrator",
  "module": "academy",
  "name": "Booking",
@@ -294,6 +301,7 @@
    "write": 1
   }
  ],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": [],

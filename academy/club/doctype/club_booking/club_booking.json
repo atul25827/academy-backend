@@ -1,0 +1,185 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:club_booking_id",
+ "creation": "2026-03-22 13:59:48.166062",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "booking_details_tab",
+  "booking_details_section",
+  "club_booking_id",
+  "guest_region",
+  "event_name",
+  "from_date",
+  "to_date",
+  "food_and_catering",
+  "stay",
+  "tab_2_tab",
+  "booking_status",
+  "is_submitted",
+  "is_rejected",
+  "is_approved",
+  "is_cancelled",
+  "is_cancel_request",
+  "cancel_comment",
+  "approval_status",
+  "tab_3_tab",
+  "arr_section",
+  "approver",
+  "cancel_approver"
+ ],
+ "fields": [
+  {
+   "fieldname": "club_booking_id",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "club_booking_id",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "booking_details_section",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "booking_details_tab",
+   "fieldtype": "Tab Break",
+   "label": "Booking Details"
+  },
+  {
+   "fieldname": "tab_2_tab",
+   "fieldtype": "Tab Break",
+   "label": "Status"
+  },
+  {
+   "fieldname": "booking_status",
+   "fieldtype": "Select",
+   "label": "Booking Status",
+   "options": "Draft\nPending\nSubmitted\nAwaiting\nApproved\nRejected\nCancel Request\nRejected Cancel Request\nCancelled"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_submitted",
+   "fieldtype": "Check",
+   "label": "Is Submitted"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_rejected",
+   "fieldtype": "Check",
+   "label": "Is Rejected"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_approved",
+   "fieldtype": "Check",
+   "label": "Is Approved"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_cancelled",
+   "fieldtype": "Check",
+   "label": "Is Cancelled"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_cancel_request",
+   "fieldtype": "Check",
+   "label": "Is Cancel Request"
+  },
+  {
+   "fieldname": "cancel_comment",
+   "fieldtype": "Data",
+   "label": "Cancel Comment"
+  },
+  {
+   "fieldname": "tab_3_tab",
+   "fieldtype": "Tab Break",
+   "label": "Approver Tab"
+  },
+  {
+   "fieldname": "arr_section",
+   "fieldtype": "Section Break",
+   "label": "Approver"
+  },
+  {
+   "fieldname": "approver",
+   "fieldtype": "Table",
+   "label": "Approver",
+   "options": "Club Approver List Child"
+  },
+  {
+   "fieldname": "cancel_approver",
+   "fieldtype": "Table",
+   "label": "Cancel Approver",
+   "options": "Club Approver List Child"
+  },
+  {
+   "fieldname": "approval_status",
+   "fieldtype": "Data",
+   "label": "Approval Status"
+  },
+  {
+   "fieldname": "guest_region",
+   "fieldtype": "Data",
+   "label": "Guest Region"
+  },
+  {
+   "fieldname": "event_name",
+   "fieldtype": "Data",
+   "label": "Event Name "
+  },
+  {
+   "fieldname": "from_date",
+   "fieldtype": "Date",
+   "label": "From Date"
+  },
+  {
+   "fieldname": "to_date",
+   "fieldtype": "Date",
+   "label": "To Date"
+  },
+  {
+   "fieldname": "food_and_catering",
+   "fieldtype": "Table",
+   "label": "Food and Catering",
+   "options": "Food and Stay Child"
+  },
+  {
+   "fieldname": "stay",
+   "fieldtype": "Table",
+   "label": "Stay",
+   "options": "Food and Stay Child"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-03-26 23:45:16.694583",
+ "modified_by": "Administrator",
+ "module": "club",
+ "name": "Club Booking",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

@@ -1094,12 +1094,21 @@ def update_booking_event_planning(booking_id, event_planning_data, no_of_partici
 						if row_data.get("booking_type") and row_data.get("booking_type") != child.booking_type:
 							changes.append(f"Booking Type changed from {child.booking_type} to {row_data.get('booking_type')}")
 
+						if row_data.get("event_end_time") and row_data.get("event_end_time") != child.event_end_time:
+							changes.append(f"Event End Date changed from {child.event_end_time} to {row_data.get('event_end_time')}")
+
+						if row_data.get("event_start_time") and row_data.get("event_start_time") != child.event_start_time:
+							changes.append(f"Event Start Date changed from {child.event_start_time} to {row_data.get('event_start_time')}")	
+
 						if changes:
 							event_planning_changes.append(f"Row {child.idx}: {', '.join(changes)}")
 
-						# Apply updates
+						# Apply updates 
 						child.hall = row_data.get("hall") or child.hall
 						child.booking_type = row_data.get("booking_type") or child.booking_type
+						child.event_start_time = row_data.get("event_start_time") or child.event_start_time
+						child.event_end_time = row_data.get("event_end_time") or child.event_end_time
+
 						found = True
 						break
 				if not found:
@@ -1108,7 +1117,9 @@ def update_booking_event_planning(booking_id, event_planning_data, no_of_partici
 					event_planning_changes.append(f"Added new row for Hall: {h_name}")
 					doc.append("event_planning", {
 						"hall": row_data.get("hall"),
-						"booking_type": row_data.get("booking_type")
+						"booking_type": row_data.get("booking_type"),
+						"event_start_time": row_data.get("event_start_time"),
+						"event_end_time": row_data.get("event_end_time")
 					})
 			else:
 				# --- ADD NEW ROW ---
@@ -1116,7 +1127,9 @@ def update_booking_event_planning(booking_id, event_planning_data, no_of_partici
 				event_planning_changes.append(f"Added new row for Hall: {h_name}")
 				doc.append("event_planning", {
 					"hall": row_data.get("hall"),
-					"booking_type": row_data.get("booking_type")
+					"booking_type": row_data.get("booking_type"),
+					"event_start_time": row_data.get("event_start_time"),
+					"event_end_time": row_data.get("event_end_time")
 				})
 
 

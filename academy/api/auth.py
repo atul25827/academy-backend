@@ -20,13 +20,10 @@ def login(usr, pwd):
 
     user = frappe.get_doc("User", frappe.session.user)
     
-    # Determine Role (Simplistic mapping for now, to be enhanced if logic complex)
-    role = "Academy User"
-    user_roles = [r.role for r in user.roles]
-    if "System Manager" in user_roles or "Academy Admin" in user_roles:
-        role = "Academy Admin"
-    elif "Academy User" in user_roles: # Check for specific 'Academy User' role if it exists distinct from core User
-         role = "Academy User"
+    # Determine Roles and Role Profile
+    excluded_roles = ["All", "Guest", "Desk User"]
+    user_roles = [r.role for r in user.roles if r.role not in excluded_roles]
+    role_profile = user.role_profile_name
     
     # Fetch Employee Code
     employee_code = None
@@ -38,15 +35,10 @@ def login(usr, pwd):
         pass
 
     # Setting Cookies
-    # SID is handled automatically by post_login usually, but we ensure our custom ones
     frappe.local.cookie_manager.set_cookie("user_id", user.name)
-    # frappe.local.cookie_manager.set_cookie("role", role)
     frappe.local.cookie_manager.set_cookie("full_name", user.full_name)
     frappe.local.cookie_manager.set_cookie("sid", frappe.session.sid)
     
-    # if employee_code:
-    #     frappe.local.cookie_manager.set_cookie("employee_code", employee_code)
-
     # Remove default keys added by post_login
     if "home_page" in frappe.local.response:
         del frappe.local.response["home_page"]
@@ -58,9 +50,9 @@ def login(usr, pwd):
         "message": "Logged In Successfully",
         "sid": frappe.session.sid,
         "user_id": user.name,
-        # "role": role,
+        "role": user_roles,
+        "role_profile": role_profile,
         "full_name": user.full_name,
-        # "employee_code": employee_code
     }
 
 @frappe.whitelist(allow_guest=True)
@@ -75,12 +67,10 @@ def get_logged_user():
     
     # 2. Fetch User Details
     user = frappe.get_doc("User", frappe.session.user)
-    roles = frappe.get_roles(user.name)
     
-    # 3. Determine Academy Role
-    user_role = "Academy User"
-    if "System Manager" in roles or "Academy Admin" in roles:
-        user_role = "Academy Admin"
+    excluded_roles = ["All", "Guest", "Desk User"]
+    roles = [role for role in frappe.get_roles(user.name) if role not in excluded_roles]
+    role_profile = user.role_profile_name
         
     # 4. Fetch Employee Code
     employee_code = None
@@ -92,7 +82,8 @@ def get_logged_user():
         "user_id": user.name,
         "full_name": user.full_name,
         "email": user.email,
-        "role": user_role,
+        "role": roles,
+        "role_profile": role_profile,
         "employee_code": employee_code,
         "image": user.user_image
     }
