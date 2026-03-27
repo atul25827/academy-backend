@@ -1,2 +1,4 @@
 academy
 master
+club
+Club Masters
