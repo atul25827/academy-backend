@@ -11,12 +11,16 @@ This document details the schema for the **Academy** Frappe application. It incl
     - [Department Master](#department-master)
     - [Hall Master](#hall-master)
     - [IT Requirement](#it-requirement)
+    - [Club Approver Matrix](#club-approver-matrix)
   - [Transactions](#transactions)
     - [Booking](#booking)
+    - [Club Booking](#club-booking)
   - [Child Tables](#child-tables)
     - [Approver Child](#approver-child)
     - [Attachment](#attachment)
     - [Event Planning Child](#event-planning-child)
+    - [Club Approver List Child](#club-approver-list-child)
+    - [Food and Stay Child](#food-and-stay-child)
 
 ---
 
@@ -64,6 +68,16 @@ This document details the schema for the **Academy** Frappe application. It incl
 | :-------------- | :------------ | :--- | :------------- | :-------: | :----: |
 | **Requirement** | `requirement` | Data | -              |     -     |   -    |
 
+### Club Approver Matrix
+*Defines dynamic rules on who should approve what.*
+
+| Field Label      | Field Name     | Type  | Options / Link | Mandatory | Unique |
+| :--------------- | :------------- | :---- | :------------- | :-------: | :----: |
+| **Matrix Name**  | `name`         | Data  | -              |     -     |   ✅    |
+| **Doctype Name** | `doctype_name` | Data  | -              |     ✅     |   -    |
+| **Matrix Type**  | `matrix_type`  | Data  | Approve        |     -     |   -    |
+| **Approvers**    | `approvers`    | Table | -              |     -     |   -    |
+
 ---
 
 ## Transactions
@@ -100,6 +114,26 @@ This document details the schema for the **Academy** Frappe application. It incl
 | **Approver**             | `approver`                                                                         | Table      | [Approver Child](#approver-child)                                      |     -     |   -    |
 | **Attachment**           | `table_trig`                                                                       | Table      | [Attachment](#attachment)                                              |     -     |   -    |
 
+### Club Booking
+*The central document for managing club reservations.*
+
+| Field Label              | Field Name             | Type   | Options / Link                                        | Mandatory | Unique |
+| :----------------------- | :--------------------- | :----- | :---------------------------------------------------- | :-------: | :----: |
+| **Club Booking Id**      | `club_booking_id`      | Data   | -                                                     |     ✅     |   ✅    |
+| **Event Name**           | `event_name`           | Data   | -                                                     |     -     |   -    |
+| **From Date**            | `from_date`            | Date   | -                                                     |     -     |   -    |
+| **To Date**              | `to_date`              | Date   | -                                                     |     -     |   -    |
+| **Booking Status**       | `booking_status`       | Select | Draft, Submitted, Approved, Rejected, Cancel Request  |     -     |   -    |
+| **Approval Status**      | `approval_status`      | Data   | -                                                     |     -     |   -    |
+| **Is Submitted**         | `is_submitted`         | Check  | -                                                     |     -     |   -    |
+| **Is Rejected**          | `is_rejected`          | Check  | -                                                     |     -     |   -    |
+| **Is Approved**          | `is_approved`          | Check  | -                                                     |     -     |   -    |
+| **Is Cancelled**         | `is_cancelled`         | Check  | -                                                     |     -     |   -    |
+| **Owner**                | `owner`                | Data   | -                                                     |     -     |   -    |
+| **Food and Catering**    | `food_and_catering`    | Table  | [Food and Stay Child](#food-and-stay-child)           |     -     |   -    |
+| **Stay**                 | `stay`                 | Table  | [Food and Stay Child](#food-and-stay-child)           |     -     |   -    |
+| **Approver**             | `approver`             | Table  | [Club Approver List Child](#club-approver-list-child) |     -     |   -    |
+
 ---
 
 ## Child Tables
@@ -131,3 +165,32 @@ This document details the schema for the **Academy** Frappe application. It incl
 | **Event Date**       | `event_date`       | Date | -                           |
 | **Event Start Time** | `event_start_time` | Time | -                           |
 | **Event End Time**   | `event_end_time`   | Time | -                           |
+
+### Club Approver List Child
+*Used in Club Booking to track sequential approval steps.*
+
+| Field Label         | Field Name        | Type     | Options / Link                        |
+| :------------------ | :---------------- | :------- | :------------------------------------ |
+| **Approver Name**   | `approver_name`   | Link     | User                                  |
+| **Level**           | `level`           | Int      | -                                     |
+| **Approver Status** | `approver_status` | Select   | Pending, Awaiting, Approved, Rejected |
+| **Action Date**     | `action_date`     | Datetime | -                                     |
+| **Remark**          | `remark`          | Data     | -                                     |
+
+### Food and Stay Child
+*Records catering and accommodation specifics for a club booking.*
+
+| Field Label                  | Field Name                  | Type   | Options / Link |
+| :--------------------------- | :-------------------------- | :----- | :------------- |
+| **Distributor/Guest Name**   | `distributor_or_guest_name` | Data   | -              |
+| **Designation**              | `designation`               | Data   | -              |
+| **Firm/Hospital Name**       | `firm_or_hospital_name`     | Data   | -              |
+| **State**                    | `state`                     | Link   | State          |
+| **Country**                  | `country`                   | Link   | Country        |
+| **Meal Type**                | `meal_type`                 | Select | -              |
+| **Total No of Guest**        | `total_no_of_guest`         | Int    | -              |
+| **Check In Date**            | `check_in_date`             | Date   | -              |
+| **Check Out Date**           | `check_out_date`            | Date   | -              |
+| **Remark**                   | `remark`                    | Data   | -              |
+| **Is Stay**                  | `is_stay`                   | Check  | -              |
+| **Both Stay And Food**       | `both_stay_and_food`        | Check  | -              |
