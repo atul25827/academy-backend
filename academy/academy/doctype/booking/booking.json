@@ -12,6 +12,7 @@
   "academy",
   "merilian_code",
   "full_name",
+  "trainer_name",
   "email",
   "contact_number",
   "vertical",
@@ -277,11 +278,16 @@
    "fieldname": "is_deleted",
    "fieldtype": "Check",
    "label": "Is Deleted"
+  },
+  {
+   "fieldname": "trainer_name",
+   "fieldtype": "Data",
+   "label": "Trainer Name"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-03-24 20:19:31.065921",
+ "modified": "2026-03-30 09:54:20.178913",
  "modified_by": "Administrator",
  "module": "academy",
  "name": "Booking",

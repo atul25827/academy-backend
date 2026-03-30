@@ -3,6 +3,46 @@ from frappe import _
 from frappe.utils import getdate, nowdate
 import random
 
+def _check_hall_clash(hall, event_date, start_time, end_time, ignore_booking=None):
+	query = """
+		SELECT c.parent, c.hall, c.event_date, c.event_start_time, c.event_end_time
+		FROM `tabEvent Planning Child` c
+		JOIN `tabBooking` p ON c.parent = p.name
+		WHERE c.hall = %s AND c.event_date = %s
+		AND IFNULL(p.is_submitted, 1) = 1 
+		AND p.is_rejected = 0 
+		AND p.is_cancelled = 0
+		AND (
+			CAST(%s AS TIME) < c.event_end_time AND CAST(%s AS TIME) > c.event_start_time
+		)
+	"""
+	params = [hall, event_date, start_time, end_time]
+	
+	if ignore_booking:
+		query += " AND p.name != %s"
+		params.append(ignore_booking)
+		
+	return frappe.db.sql(query, tuple(params), as_dict=True)
+
+@frappe.whitelist()
+def check_hall_availability(hall, event_date, start_time, end_time, booking_id=None):
+	"""
+	API to check if a hall is available on a specific date and time.
+	"""
+	clashes = _check_hall_clash(hall, event_date, start_time, end_time, booking_id)
+	
+	if clashes:
+		c = clashes[0]
+		frappe.local.response['http_status_code'] = 409
+		return {
+			"available": False,
+			"message": _("Hall '{0}' is already booked on {1} between {2} and {3} (Booking: {4})").format(
+				hall, event_date, c.event_start_time, c.event_end_time, c.parent
+			),
+			"clashes": clashes
+		}
+	return {"available": True, "message": "Hall is available"}
+
 @frappe.whitelist()
 def create_booking(**kwargs):
 	"""
@@ -81,6 +121,31 @@ def create_booking(**kwargs):
 		# but if passed as list/dict from frappe.call/json, it works directly.
 		# Ideally the client sends proper JSON.
 
+		# Validation for Hall Clash (Optimized)
+		event_planning = data.get('event_planning')
+		if isinstance(event_planning, str):
+			import json
+			try:
+				event_planning = json.loads(event_planning)
+				data['event_planning'] = event_planning
+			except:
+				pass
+		
+		if event_planning and isinstance(event_planning, list):
+			for row in event_planning:
+				hall = row.get("hall")
+				event_date = row.get("event_date")
+				start_time = row.get("event_start_time")
+				end_time = row.get("event_end_time")
+				
+				if hall and event_date and start_time and end_time:
+					clashes = _check_hall_clash(hall, event_date, start_time, end_time)
+					if clashes:
+						c = clashes[0]
+						frappe.throw(_("Hall '{0}' is already booked on {1} between {2} and {3}. Please select a different time.").format(
+							hall, event_date, c.get("event_start_time"), c.get("event_end_time")
+						))
+
 		# 4. Create Document
 		doc = frappe.get_doc(data)
 		doc.insert(ignore_permissions=True) # or False depending on need. Using True for now to strict API control.
@@ -136,7 +201,7 @@ def log_booking_action(booking_id, action, comment=None, remark=None, status=Non
 			
 			# If action implies approval
 			if action in ["Approved", "Rejected", "Cancellation Approved", "Cancellation Rejected"]:
-				user_role = "Approver"
+				user_role = "Admin"
 		except:
 			pass
 
@@ -1086,19 +1151,23 @@ def update_booking_event_planning(booking_id, event_planning_data, no_of_partici
 					if child.name == row_name:
 						# Log changes for this row
 						changes = []
-						if row_data.get("hall") and row_data.get("hall") != child.hall:
+						if row_data.get("hall") and str(row_data.get("hall")) != str(child.hall):
 							old_hall = frappe.db.get_value("Hall Master", child.hall, "hall_name") or child.hall
 							new_hall = frappe.db.get_value("Hall Master", row_data.get("hall"), "hall_name") or row_data.get("hall")
 							changes.append(f"Hall changed from {old_hall} to {new_hall}")
 						
-						if row_data.get("booking_type") and row_data.get("booking_type") != child.booking_type:
+						if row_data.get("booking_type") and str(row_data.get("booking_type")) != str(child.booking_type):
 							changes.append(f"Booking Type changed from {child.booking_type} to {row_data.get('booking_type')}")
+						
+						old_end = str(child.event_end_time)
+						new_end = str(row_data.get("event_end_time"))
+						if row_data.get("event_end_time") and old_end != new_end and not old_end.startswith(new_end):
+							changes.append(f"Event End Time changed from {child.event_end_time} to {row_data.get('event_end_time')}")
 
-						if row_data.get("event_end_time") and row_data.get("event_end_time") != child.event_end_time:
-							changes.append(f"Event End Date changed from {child.event_end_time} to {row_data.get('event_end_time')}")
-
-						if row_data.get("event_start_time") and row_data.get("event_start_time") != child.event_start_time:
-							changes.append(f"Event Start Date changed from {child.event_start_time} to {row_data.get('event_start_time')}")	
+						old_start = str(child.event_start_time)
+						new_start = str(row_data.get("event_start_time"))
+						if row_data.get("event_start_time") and old_start != new_start and not old_start.startswith(new_start):
+							changes.append(f"Event Start Time changed from {child.event_start_time} to {row_data.get('event_start_time')}")	
 
 						if changes:
 							event_planning_changes.append(f"Row {child.idx}: {', '.join(changes)}")
