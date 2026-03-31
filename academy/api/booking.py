@@ -2,6 +2,7 @@ import frappe
 from frappe import _
 from frappe.utils import getdate, nowdate
 import random
+from academy.api.utils import _send_booking_email
 
 def _check_hall_clash(hall, event_date, start_time, end_time, ignore_booking=None):
 	query = """
@@ -151,12 +152,33 @@ def create_booking(**kwargs):
 		doc.insert(ignore_permissions=True) # or False depending on need. Using True for now to strict API control.
 
 		# Log Action
-		# log_booking_action needs to be defined in scope or imported
-		# Assuming it's in the same file now
 		try:
 			log_booking_action(doc.name, "Created", status="Pending", comment="Initial Request from Create Booking")
 		except:
 			pass
+
+		# ── EMAIL: Trigger 1 — Booking Submitted ──
+		try:
+			# To Requestor
+			_send_booking_email(
+				to=[doc.email or doc.owner],
+				subject="Booking Submitted",
+				message="Your booking has been submitted successfully and is now awaiting approval.",
+				doc=doc,
+				recipient_name=doc.full_name or frappe.utils.get_fullname(doc.owner)
+			)
+			# To First Approver
+			first_approver_email = approval_matrix.approvers[0].approver_name
+			first_approver_fullname = frappe.db.get_value("User", first_approver_email, "full_name") or first_approver_email
+			_send_booking_email(
+				to=[first_approver_email],
+				subject="Action Required: New Booking Approval",
+				message="A new booking requires your approval. Please review the details below.",
+				doc=doc,
+				recipient_name=first_approver_fullname
+			)
+		except Exception as e:
+			frappe.log_error(title="Booking Submit Email Error", message=str(e))
 
 		return {
 			"message": "Booking Created Successfully",
@@ -897,11 +919,14 @@ def update_booking_status(booking_id, action, remark=None, request_type="booking
 		current_approver_name = frappe.utils.get_fullname(user)
 
 		# --- Handle Cascade Logic ---
+		requestor_email = doc.email or doc.owner
+		requestor_name = doc.full_name or frappe.utils.get_fullname(doc.owner)
+
 		if action == "Approve":
 			# check if there is a next approver in this specific table
-			if current_index + 1 < len(child_table):
+			if int(current_index) + 1 < len(child_table):
 				# Next approver exists
-				next_approver_row = child_table[current_index + 1]
+				next_approver_row = child_table[int(current_index) + 1]
 				next_approver_row.approver_status = "Awaiting"
 				
 				next_name = frappe.utils.get_fullname(next_approver_row.approver_name)
@@ -910,6 +935,26 @@ def update_booking_status(booking_id, action, remark=None, request_type="booking
 					doc.overall_status = f"Awaiting Cancellation Approval from {next_name}"
 				else:
 					doc.overall_status = f"Awaiting Approval from {next_name}"
+
+				# ── EMAIL: Trigger 2 — Intermediate Approval ──
+				try:
+					_send_booking_email(
+						to=[user],
+						subject="Booking Approved",
+						message="You have approved this booking. It has been forwarded to the next approver.",
+						doc=doc,
+						recipient_name=current_approver_name
+					)
+					_send_booking_email(
+						to=[next_approver_row.approver_name],
+						subject="Action Required: Booking Approval",
+						message="A booking requires your approval. Please review the details below.",
+						doc=doc,
+						recipient_name=next_name
+					)
+				except Exception as e:
+					frappe.log_error(title="Intermediate Approval Email Error", message=str(e))
+
 			else:
 				# --- Last approver approved ---
 				if request_type == "cancel_request":
@@ -918,14 +963,55 @@ def update_booking_status(booking_id, action, remark=None, request_type="booking
 					doc.booking_status = "Cancellation Approved"
 					doc.cancel_request = 0
 					doc.is_cancelled = 1
-					doc.is_approved = 0  # No longer considered 'Approved' since it's cancelled
+					doc.is_approved = 0
 					doc.overall_status = f"Cancellation Approved By {current_approver_name}"
+
+					# ── EMAIL: Trigger 6 — Cancel Approved (Final) ──
+					try:
+						_send_booking_email(
+							to=[requestor_email],
+							subject="Booking Cancelled",
+							message=f"Your booking has been cancelled. Approved by {current_approver_name}.",
+							doc=doc,
+							recipient_name=requestor_name,
+							remark=remark
+						)
+						_send_booking_email(
+							to=[user],
+							subject="Cancellation Approved",
+							message="You have approved the cancellation of this booking.",
+							doc=doc,
+							recipient_name=current_approver_name
+						)
+					except Exception as e:
+						frappe.log_error(title="Cancel Approved Email Error", message=str(e))
+
 				else:
 					# Finalize Booking Approval
 					doc.event_status = "Approved"
 					doc.booking_status = "Booking Approved"
 					doc.is_approved = 1
 					doc.overall_status = f"Approved By {current_approver_name}"
+
+					# ── EMAIL: Trigger 3 — Final Approval ──
+					try:
+						_send_booking_email(
+							to=[requestor_email],
+							subject="Booking Approved",
+							message=f"Your booking has been fully approved by {current_approver_name}.",
+							doc=doc,
+							recipient_name=requestor_name,
+							remark=remark
+						)
+						_send_booking_email(
+							to=[user],
+							subject="Booking Approved",
+							message="You have given final approval for this booking.",
+							doc=doc,
+							recipient_name=current_approver_name
+						)
+					except Exception as e:
+						frappe.log_error(title="Final Approval Email Error", message=str(e))
 
 		elif action == "Reject":
 			# Rejected Logic
@@ -936,7 +1022,6 @@ def update_booking_status(booking_id, action, remark=None, request_type="booking
 					doc.cancel_request = 0
 					doc.overall_status = f"Cancellation Rejected By {current_approver_name}"
 				else:
-					# If it wasn't approved yet? Rare case for cancellation.
 					doc.event_status = "Pending"
 					doc.booking_status = "Cancellation Rejected"
 					doc.overall_status = f"Cancellation Rejected By {current_approver_name}"
@@ -946,6 +1031,27 @@ def update_booking_status(booking_id, action, remark=None, request_type="booking
 				doc.is_rejected = 1
 				doc.booking_status = "Booking Rejected"
 				doc.overall_status = f"Rejected By {current_approver_name}"
+
+			# ── EMAIL: Trigger 4 — Rejection ──
+			try:
+				reject_label = "Cancellation" if request_type == "cancel_request" else "Booking"
+				_send_booking_email(
+					to=[requestor_email],
+					subject=f"{reject_label} Rejected",
+					message=f"Your {reject_label.lower()} has been rejected by {current_approver_name}.",
+					doc=doc,
+					recipient_name=requestor_name,
+					remark=remark
+				)
+				_send_booking_email(
+					to=[user],
+					subject=f"You Rejected a {reject_label}",
+					message=f"You have rejected this {reject_label.lower()}.",
+					doc=doc,
+					recipient_name=current_approver_name
+				)
+			except Exception as e:
+				frappe.log_error(title="Rejection Email Error", message=str(e))
 
 
 		doc.save(ignore_permissions=True)
@@ -1314,6 +1420,29 @@ def cancel_booking(booking_id, cancel_comment=None):
 			)
 		except:
 			pass
+
+		# ── EMAIL: Trigger 5 — Cancel Requested ──
+		try:
+			requestor_email = doc.email or doc.owner
+			requestor_name = doc.full_name or frappe.utils.get_fullname(doc.owner)
+			_send_booking_email(
+				to=[requestor_email],
+				subject="Cancel Request Submitted",
+				message="Your cancellation request has been submitted and is now awaiting approval.",
+				doc=doc,
+				recipient_name=requestor_name
+			)
+			if first_approver_name:
+				approver_fullname = frappe.utils.get_fullname(first_approver_name)
+				_send_booking_email(
+					to=[first_approver_name],
+					subject="Action Required: Cancel Approval",
+					message="A cancellation request requires your approval. Please review the details below.",
+					doc=doc,
+					recipient_name=approver_fullname
+				)
+		except Exception as e:
+			frappe.log_error(title="Cancel Request Email Error", message=str(e))
 
 		return {
 			"message": "Cancellation request submitted successfully",
