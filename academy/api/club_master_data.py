@@ -13,6 +13,7 @@ def get_club_masters():
             "food_preferences": frappe.get_all("Food Preferences", fields=["name"]),
             "meal_type": frappe.get_all("Meal Type", fields=["name"]),
             "service_type": frappe.get_all("Service Type", fields=["name"]),
+            "guest_region": frappe.get_all("Guest Region", fields=["name"]),
         }
         return {
             "success_key": 1,
