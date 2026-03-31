@@ -51,10 +51,9 @@
   },
   {
    "fieldname": "food_preferences",
-   "fieldtype": "Link",
+   "fieldtype": "Data",
    "in_list_view": 1,
-   "label": "Food Preferences",
-   "options": "Food Preferences"
+   "label": "Food Preferences"
   },
   {
    "fieldname": "meal_type",
@@ -176,7 +175,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-03-27 10:02:27.469108",
+ "modified": "2026-03-31 10:20:38.905638",
  "modified_by": "Administrator",
  "module": "club",
  "name": "Food and Stay Child",
