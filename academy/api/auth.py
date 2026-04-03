@@ -305,6 +305,7 @@ def forgot_password(email: str):
 
         # ── Prevent user enumeration – always return success ─────────────
         if not frappe.db.exists("User", email):
+            frappe.logger().info(f"forgot_password: Ignored request for unregistered email '{email}'.")
             frappe.local.response["http_status_code"] = 200
             return GENERIC_SUCCESS
 
@@ -337,14 +338,17 @@ def forgot_password(email: str):
             message=_get_reset_email_body(reset_link)
         )
 
-        frappe.logger().info(f"forgot_password: Reset token generated for '{email}'.")
+        if not email_sent:
+            raise Exception("utils.send_mail returned False indicating SMTP failure.")
+
+        frappe.logger().info(f"forgot_password: Reset token generated and email sent for '{email}'.")
 
         frappe.local.response["http_status_code"] = 200
         return GENERIC_SUCCESS
 
     except Exception as e:
         frappe.db.rollback()
-        return _error("An unexpected error occurred. Please try again later.", 500,
+        return _error(f"Failed to send email. Check error logs. Error: {str(e)}", 500,
                       log_message=f"forgot_password error for {email}: {str(e)}")
 
 

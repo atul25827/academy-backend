@@ -72,11 +72,11 @@ def send_mail(
         server.sendmail(From, recipients, msg.as_string())
         server.quit()
 
-        print("")
         return True
 
     except Exception as e:
-        print(f"❌ Failed to send email: {e}")
+        error_msg = f"Failed to send email to {to}: {str(e)}"
+        frappe.log_error(title="Academy Utils send_mail Error", message=error_msg)
         return False
 
 
