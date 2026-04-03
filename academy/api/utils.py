@@ -13,10 +13,11 @@ def send_mail(
     subject: str = "",
     email_template_name: str = "",
     context: dict = None,
-    attachments: list[dict[str, str]] = None
+    attachments: list[dict[str, str]] = None,
+    message: str = ""
 ) -> bool:
     """
-    Sends an email with optional CC, BCC, and attachments using an email template rendered with context.
+    Sends an email with optional CC, BCC, and attachments using an email template rendered with context or a raw message in `message`.
     """
 
     cc = cc or []
@@ -35,10 +36,10 @@ def send_mail(
         # Render email template
         if email_template_name:
             template = frappe.get_doc("Email Template", email_template_name)
-            message = frappe.render_template(template.response_html, context)
+            html_message = frappe.render_template(template.response_html, context)
             subject = frappe.render_template(template.subject, context) or subject
         else:
-            message = ""
+            html_message = message
 
         # ✅ Create MIME message
         msg = MIMEMultipart()
@@ -49,7 +50,7 @@ def send_mail(
         msg["Subject"] = str(subject)              # ensure subject is string
 
         # Attach HTML body
-        msg.attach(MIMEText(message, "html"))
+        msg.attach(MIMEText(html_message, "html"))
 
         # Attachments
         for attachment in attachments:
