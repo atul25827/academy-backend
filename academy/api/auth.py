@@ -1,5 +1,7 @@
 import frappe
 import re
+import random
+import hashlib
 from frappe import _
 from frappe.utils import cint, now_datetime, add_to_date
 from frappe.utils.password import check_password, update_password
@@ -165,6 +167,148 @@ def get_logged_user():
 
 
 # ===========================================================================
+# 2.5 OTP VERIFICATION
+# ===========================================================================
+
+@frappe.whitelist(allow_guest=True)
+def send_signup_otp(email: str, employee_code: str):
+    """
+    Send OTP for user signup registration.
+    """
+    try:
+        if not email or not employee_code:
+            return _error("Email and Employee Code are required", 400)
+            
+        email = email.strip().lower()
+        if not _validate_email(email):
+            return _error("Invalid email address format.", 400)
+            
+        if frappe.db.exists("User", email):
+            return _error("User already registered.", 409)
+
+        employee = frappe.db.get_value(
+            "Master Employee",
+            {"employee_code": employee_code},
+            ["name", "email"],
+            as_dict=True
+        )
+
+        if not employee:
+            return _error("Employee not found or email mismatch.", 400)
+            
+        emp_emails = {(employee.email or "").strip().lower()}
+        emp_emails.discard("")
+        if email not in emp_emails:
+            return _error("Employee not found or email mismatch.", 400)
+
+        # Check rate limiting: max 3 attempts per 5 mins
+        five_mins_ago = add_to_date(now_datetime(), minutes=-5)
+        recent_attempts = frappe.db.count("User OTP Verification", filters={
+            "email": email,
+            "creation": (">", five_mins_ago)
+        })
+        
+        if recent_attempts >= 3:
+            return _error("Maximum OTP attempts reached. Please try again after 5 minutes.", 429)
+
+        # Generate 6-digit OTP
+        otp = str(random.randint(100000, 999999))
+        otp_hash = hashlib.sha256(otp.encode()).hexdigest()
+        
+        # Valid for 1 min in DB as per requirement, but template says 30 sec
+        expiry_time = add_to_date(now_datetime(), seconds=60)
+        
+        # Delete old OTPs for this email to prevent clutter
+        old_otps = frappe.get_all("User OTP Verification", filters={"email": email}, pluck="name")
+        for old_otp in old_otps:
+            frappe.delete_doc("User OTP Verification", old_otp, ignore_permissions=True)
+            
+        # Create new OTP record
+        doc = frappe.get_doc({
+            "doctype": "User OTP Verification",
+            "email": email,
+            "employee_code": employee_code,
+            "otp_hash": otp_hash,
+            "expiry_time": expiry_time,
+            "is_verified": 0,
+            "attempt_count": 0
+        })
+        doc.insert(ignore_permissions=True)
+        frappe.db.commit()
+        
+        # Send Email
+        message = f"Your OTP is {otp}. Valid for 30 seconds."
+        email_sent = send_mail(
+            From="noreply@merillife.com",
+            to=[email],
+            subject="Your Signup OTP",
+            context={},
+            email_template_name="",
+            message=message
+        )
+        
+        if not email_sent:
+            return _error("Failed to send OTP email.", 500)
+            
+        frappe.local.response["http_status_code"] = 200
+        return {"success_key": 1, "message": "OTP sent successfully."}
+
+    except Exception as e:
+        frappe.db.rollback()
+        return _error("An unexpected error occurred.", 500, log_message=f"send_signup_otp error: {str(e)}")
+
+
+@frappe.whitelist(allow_guest=True)
+def verify_signup_otp(email: str, employee_code: str, otp: str):
+    """
+    Verify the OTP for signup registration.
+    """
+    try:
+        if not email or not employee_code or not otp:
+            return _error("Email, Employee Code and OTP are required.", 400)
+            
+        email = email.strip().lower()
+        
+        otp_records = frappe.get_all(
+            "User OTP Verification",
+            filters={"email": email, "employee_code": employee_code},
+            fields=["name", "otp_hash", "expiry_time", "is_verified", "attempt_count"],
+            order_by="creation desc",
+            limit=1
+        )
+        
+        if not otp_records:
+            return _error("No OTP found. Please request a new OTP.", 400)
+            
+        record = otp_records[0]
+        
+        if record.is_verified:
+            return _error("OTP is already verified.", 400)
+            
+        if now_datetime() > record.expiry_time:
+            return _error("OTP has expired. Please request a new one.", 400)
+            
+        otp_hash = hashlib.sha256(str(otp).encode()).hexdigest()
+        
+        if record.otp_hash != otp_hash:
+            new_count = record.attempt_count + 1
+            frappe.db.set_value("User OTP Verification", record.name, "attempt_count", new_count, update_modified=False)
+            frappe.db.commit()
+            return _error("Invalid OTP.", 400)
+            
+        # Match success
+        frappe.db.set_value("User OTP Verification", record.name, "is_verified", 1, update_modified=False)
+        frappe.db.commit()
+        
+        frappe.local.response["http_status_code"] = 200
+        return {"success_key": 1, "message": "OTP verified successfully."}
+        
+    except Exception as e:
+        frappe.db.rollback()
+        return _error("An unexpected error occurred.", 500, log_message=f"verify_signup_otp error: {str(e)}")
+
+
+# ===========================================================================
 # 3. REGISTER USER
 # ===========================================================================
 
@@ -202,6 +346,18 @@ def register_user(employee_code: str, email: str, password: str):
         is_strong, reason = _validate_password_strength(password)
         if not is_strong:
             return _error(reason, 400)
+
+        # ── 1.5 Verify OTP has been verified ────────────────────────────
+        otp_records = frappe.get_all(
+            "User OTP Verification",
+            filters={"email": email, "employee_code": employee_code, "is_verified": 1},
+            fields=["name"],
+            order_by="creation desc",
+            limit=1
+        )
+        if not otp_records:
+            return _error("Please verify OTP before registration.", 400)
+        otp_name = otp_records[0].name
 
         # ── 2. Check if User already exists ─────────────────────────────
         if frappe.db.exists("User", email):
@@ -249,6 +405,10 @@ def register_user(employee_code: str, email: str, password: str):
             email,
             update_modified=False,
         )
+        frappe.db.commit()
+
+        # ── 6. Cleanup Verification Record ───────────────────────────────
+        frappe.delete_doc("User OTP Verification", otp_name, ignore_permissions=True)
         frappe.db.commit()
 
         frappe.logger().info(
@@ -519,3 +679,27 @@ def reset_password(token: str, new_password: str):
         frappe.db.rollback()
         return _error("An unexpected error occurred. Please try again.", 500,
                       log_message=f"reset_password error: {str(e)}")
+
+
+# ===========================================================================
+# 7. CLEANUP EXPIRED OTPS
+# ===========================================================================
+
+def cleanup_expired_otps():
+    """
+    Scheduled job to auto-delete expired OTPs.
+    Call via hooks.py on daily or hourly basis.
+    """
+    try:
+        expired_otps = frappe.get_all(
+            "User OTP Verification",
+            filters={"expiry_time": ("<", now_datetime())},
+            pluck="name"
+        )
+        for name in expired_otps:
+            frappe.delete_doc("User OTP Verification", name, ignore_permissions=True)
+        if expired_otps:
+            frappe.db.commit()
+    except Exception as e:
+        frappe.db.rollback()
+        frappe.log_error(title="OTP Cleanup Error", message=str(e))
