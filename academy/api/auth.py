@@ -189,7 +189,7 @@ def send_signup_otp(email: str, employee_code: str):
         employee = frappe.db.get_value(
             "Master Employee",
             {"employee_code": employee_code},
-            ["name", "email"],
+            ["name", "employee_name", "email"],
             as_dict=True
         )
 
@@ -237,14 +237,14 @@ def send_signup_otp(email: str, employee_code: str):
         frappe.db.commit()
         
         # Send Email
-        message = f"Your OTP is {otp}. Valid for 30 seconds."
+        user_name = employee.employee_name or email
         email_sent = send_mail(
             From="noreply@merillife.com",
             to=[email],
-            subject="Your Signup OTP",
+            subject="Your OTP Code for Verification – Academy Portal",
             context={},
             email_template_name="",
-            message=message
+            message=_get_otp_email_body(user_name, otp)
         )
         
         if not email_sent:
@@ -510,6 +510,46 @@ def forgot_password(email: str):
         frappe.db.rollback()
         return _error(f"Failed to send email. Check error logs. Error: {str(e)}", 500,
                       log_message=f"forgot_password error for {email}: {str(e)}")
+
+
+def _get_otp_email_body(user_name: str, otp: str) -> str:
+    """Return the HTML body for the OTP verification email."""
+    return f"""
+    <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
+        <!-- Header -->
+        <div style="background: linear-gradient(135deg, #1a237e 0%, #0d47a1 100%); padding: 30px 40px; text-align: center;">
+            <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 600; letter-spacing: 0.5px;">Academy Portal</h1>
+            <p style="color: #bbdefb; margin: 8px 0 0 0; font-size: 14px;">Email Verification</p>
+        </div>
+
+        <!-- Body -->
+        <div style="padding: 40px;">
+            <p style="font-size: 16px; color: #333333; margin: 0 0 8px 0;">Hi <strong>{user_name}</strong>,</p>
+            <p style="font-size: 15px; color: #555555; margin: 0 0 24px 0; line-height: 1.6;">Thank you for choosing <strong>Meril</strong>.</p>
+            <p style="font-size: 15px; color: #555555; margin: 0 0 24px 0; line-height: 1.6;">To complete your verification process, please use the One-Time Password (OTP) below:</p>
+
+            <!-- OTP Box -->
+            <div style="background-color: #f5f7ff; border: 2px dashed #1a237e; border-radius: 8px; padding: 24px; text-align: center; margin: 0 0 24px 0;">
+                <p style="font-size: 13px; color: #666666; margin: 0 0 8px 0; text-transform: uppercase; letter-spacing: 1px;">Your OTP Code</p>
+                <p style="font-size: 36px; font-weight: 700; color: #1a237e; margin: 0; letter-spacing: 8px; font-family: 'Courier New', monospace;">{otp}</p>
+            </div>
+
+            <p style="font-size: 14px; color: #777777; margin: 0 0 8px 0;">⏱ This code is valid for the next <strong>1 minute</strong>.</p>
+            <p style="font-size: 14px; color: #d32f2f; margin: 0 0 24px 0;">🔒 Please do not share this code with anyone for security reasons.</p>
+
+            <hr style="border: none; border-top: 1px solid #eeeeee; margin: 24px 0;">
+
+            <p style="font-size: 13px; color: #999999; margin: 0 0 8px 0;">If you did not request this, please ignore this email or contact our support team immediately.</p>
+            <p style="font-size: 13px; color: #999999; margin: 0 0 0 0;">Need help? Reach out to us at <a href="mailto:deepak.mathur@merillife.com" style="color: #1a237e; text-decoration: none;">deepak.mathur@merillife.com</a></p>
+        </div>
+
+        <!-- Footer -->
+        <div style="background-color: #f5f5f5; padding: 20px 40px; text-align: center; border-top: 1px solid #e0e0e0;">
+            <p style="font-size: 13px; color: #999999; margin: 0;">Best regards,</p>
+            <p style="font-size: 15px; color: #333333; margin: 4px 0 0 0; font-weight: 600;">Meril</p>
+        </div>
+    </div>
+    """
 
 
 def _get_reset_email_body(reset_link: str) -> str:
