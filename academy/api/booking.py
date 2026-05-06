@@ -165,7 +165,8 @@ def create_booking(**kwargs):
 				subject="Booking Submitted",
 				message="Your booking has been submitted successfully and is now awaiting approval.",
 				doc=doc,
-				recipient_name=doc.full_name or frappe.utils.get_fullname(doc.owner)
+				recipient_name=doc.full_name or frappe.utils.get_fullname(doc.owner),
+				redirect_path="/my-bookings"
 			)
 			# To First Approver
 			first_approver_email = approval_matrix.approvers[0].approver_name
@@ -175,7 +176,8 @@ def create_booking(**kwargs):
 				subject="Action Required: New Booking Approval",
 				message="A new booking requires your approval. Please review the details below.",
 				doc=doc,
-				recipient_name=first_approver_fullname
+				recipient_name=first_approver_fullname,
+				redirect_path="/bookings"
 			)
 		except Exception as e:
 			frappe.log_error(title="Booking Submit Email Error", message=str(e))
@@ -943,14 +945,16 @@ def update_booking_status(booking_id, action, remark=None, request_type="booking
 						subject="Booking Approved",
 						message="You have approved this booking. It has been forwarded to the next approver.",
 						doc=doc,
-						recipient_name=current_approver_name
+						recipient_name=current_approver_name,
+						redirect_path="/bookings"
 					)
 					_send_booking_email(
 						to=[next_approver_row.approver_name],
 						subject="Action Required: Booking Approval",
 						message="A booking requires your approval. Please review the details below.",
 						doc=doc,
-						recipient_name=next_name
+						recipient_name=next_name,
+						redirect_path="/bookings"
 					)
 				except Exception as e:
 					frappe.log_error(title="Intermediate Approval Email Error", message=str(e))
@@ -974,6 +978,7 @@ def update_booking_status(booking_id, action, remark=None, request_type="booking
 							message=f"Your booking has been cancelled. Approved by {current_approver_name}.",
 							doc=doc,
 							recipient_name=requestor_name,
+							redirect_path="/my-bookings",
 							remark=remark
 						)
 						_send_booking_email(
@@ -981,7 +986,8 @@ def update_booking_status(booking_id, action, remark=None, request_type="booking
 							subject="Cancellation Approved",
 							message="You have approved the cancellation of this booking.",
 							doc=doc,
-							recipient_name=current_approver_name
+							recipient_name=current_approver_name,
+							redirect_path="/bookings"
 						)
 					except Exception as e:
 						frappe.log_error(title="Cancel Approved Email Error", message=str(e))
@@ -1001,6 +1007,7 @@ def update_booking_status(booking_id, action, remark=None, request_type="booking
 							message=f"Your booking has been fully approved by {current_approver_name}.",
 							doc=doc,
 							recipient_name=requestor_name,
+							redirect_path="/my-bookings",
 							remark=remark
 						)
 						_send_booking_email(
@@ -1008,7 +1015,8 @@ def update_booking_status(booking_id, action, remark=None, request_type="booking
 							subject="Booking Approved",
 							message="You have given final approval for this booking.",
 							doc=doc,
-							recipient_name=current_approver_name
+							recipient_name=current_approver_name,
+							redirect_path="/bookings"
 						)
 					except Exception as e:
 						frappe.log_error(title="Final Approval Email Error", message=str(e))
@@ -1041,6 +1049,7 @@ def update_booking_status(booking_id, action, remark=None, request_type="booking
 					message=f"Your {reject_label.lower()} has been rejected by {current_approver_name}.",
 					doc=doc,
 					recipient_name=requestor_name,
+					redirect_path="/my-bookings",
 					remark=remark
 				)
 				_send_booking_email(
@@ -1048,7 +1057,8 @@ def update_booking_status(booking_id, action, remark=None, request_type="booking
 					subject=f"You Rejected a {reject_label}",
 					message=f"You have rejected this {reject_label.lower()}.",
 					doc=doc,
-					recipient_name=current_approver_name
+					recipient_name=current_approver_name,
+					redirect_path="/bookings"
 				)
 			except Exception as e:
 				frappe.log_error(title="Rejection Email Error", message=str(e))
@@ -1430,7 +1440,8 @@ def cancel_booking(booking_id, cancel_comment=None):
 				subject="Cancel Request Submitted",
 				message="Your cancellation request has been submitted and is now awaiting approval.",
 				doc=doc,
-				recipient_name=requestor_name
+				recipient_name=requestor_name,
+				redirect_path="/my-bookings"
 			)
 			if first_approver_name:
 				approver_fullname = frappe.utils.get_fullname(first_approver_name)
@@ -1439,7 +1450,8 @@ def cancel_booking(booking_id, cancel_comment=None):
 					subject="Action Required: Cancel Approval",
 					message="A cancellation request requires your approval. Please review the details below.",
 					doc=doc,
-					recipient_name=approver_fullname
+					recipient_name=approver_fullname,
+					redirect_path="/bookings"
 				)
 		except Exception as e:
 			frappe.log_error(title="Cancel Request Email Error", message=str(e))
