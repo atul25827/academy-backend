@@ -86,7 +86,7 @@ BOOKING_EMAIL_SENDER = "noreply@merillife.com"
 BOOKING_EMAIL_TEMPLATE = "Academy Booking Notification"
 
 
-def get_booking_email_context(doc, message, subject, recipient_name, remark=None):
+def get_booking_email_context(doc, message, subject, recipient_name, redirect_path="/my-bookings", remark=None):
     """
     Build the full Jinja context dict for the Academy Booking Notification template.
     Accepts an optional 'remark' (approver comment) to include in the email body.
@@ -119,17 +119,17 @@ def get_booking_email_context(doc, message, subject, recipient_name, remark=None
         "mats_request_number": getattr(doc, "mats_request_number", ""),
         "cancel_comment": getattr(doc, "cancel_comment", "") if getattr(doc, "cancel_request", 0) else None,
 
-        "doc_link": f"{frappe.get_conf().get('frontend_url', frappe.utils.get_url())}"
+        "doc_link": f"{frappe.get_conf().get('frontend_url', frappe.utils.get_url())}{redirect_path}/{doc.name}"
     }
 
 
-def _send_booking_email(to, subject, message, doc, recipient_name, remark=None):
+def _send_booking_email(to, subject, message, doc, recipient_name, redirect_path="/my-bookings", remark=None):
     """
     Fires an email using the Academy Booking Notification template.
     Logs success/failure to Frappe Error Log for traceability.
     """
     try:
-        context = get_booking_email_context(doc, message, subject, recipient_name, remark=remark)
+        context = get_booking_email_context(doc, message, subject, recipient_name, redirect_path=redirect_path, remark=remark)
         result = send_mail(
             From=BOOKING_EMAIL_SENDER,
             to=to if isinstance(to, list) else [to],
@@ -138,7 +138,7 @@ def _send_booking_email(to, subject, message, doc, recipient_name, remark=None):
             context=context
         )
         if result:
-            frappe.logger().info(f"✅ Email sent to {to} | Subject: {subject} | Booking: {doc.name}")
+            frappe.logger().info(f"Email sent to {to} | Subject: {subject} | Booking: {doc.name}")
         else:
             frappe.log_error(
                 title="Booking Email Send Failed",
