@@ -1153,7 +1153,7 @@ def get_booking_export(academy=None, hall=None, status=None, search_name=None):
 		# 5. Hall Filter
 		if hall and hall != "all":
 			booking_names_with_hall = frappe.get_all(
-				"Event Planning Child", 
+				"Event Planning Child",
 				filters={"hall": hall}, 
 				pluck="parent",
 				distinct=True
@@ -1179,6 +1179,33 @@ def get_booking_export(academy=None, hall=None, status=None, search_name=None):
 
 		if not data:
 			return {"data": []}
+
+		# ---------------------------------------------------------
+		# Helper: Format date to dd/mm/yyyy
+		# ---------------------------------------------------------
+		def _fmt_date(val):
+			"""Convert a date/string value to dd/mm/yyyy, return as-is on failure."""
+			if not val:
+				return val
+			try:
+				d = getdate(val)
+				return d.strftime("%d/%m/%Y")
+			except Exception:
+				return val
+
+		# ---------------------------------------------------------
+		# Fetch Company Names (vertical → Master Company)
+		# ---------------------------------------------------------
+		vertical_ids = list(set([d.vertical for d in data if d.get("vertical")]))
+		company_map = {}
+		if vertical_ids:
+			companies = frappe.get_all(
+				"Master Company",
+				filters={"name": ["in", vertical_ids]},
+				fields=["name", "company_name"]
+			)
+			for c in companies:
+				company_map[c.name] = c.company_name
 
 		# ---------------------------------------------------------
 		# Fetch Child Table Data (Event Planning) & Enrich
@@ -1208,11 +1235,26 @@ def get_booking_export(academy=None, hall=None, status=None, search_name=None):
 			if child.hall and child.hall in hall_map:
 				child["hall_name"] = hall_map[child.hall]
 			
+			# Format event_date in child rows to dd/mm/yyyy
+			if child.get("event_date"):
+				child["event_date"] = _fmt_date(child["event_date"])
+			
 			event_planning_map[child.parent].append(child)
 			
-		# Attach child rows to parent data
+		# Attach child rows to parent data + enrich with company_name & formatted dates
 		for row in data:
 			row["event_planning"] = event_planning_map.get(row.name, [])
+			
+			# Add company_name from vertical
+			vertical = row.get("vertical")
+			if vertical and vertical in company_map:
+				row["company_name"] = company_map[vertical]
+			else:
+				row["company_name"] = ""
+			
+			# Format start/end dates to dd/mm/yyyy
+			row["event_start_date"] = _fmt_date(row.get("event_start_date"))
+			row["event_end_date"] = _fmt_date(row.get("event_end_date"))
 			
 		return {"data": data}
 
