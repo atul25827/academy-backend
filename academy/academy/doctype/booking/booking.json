@@ -28,6 +28,7 @@
   "mats_event",
   "mats_request_number",
   "comment",
+  "hands_on_requirement",
   "tab_2_tab",
   "event_status",
   "overall_status",
@@ -283,11 +284,17 @@
    "fieldname": "trainer_name",
    "fieldtype": "Data",
    "label": "Trainer Name"
+  },
+  {
+   "fieldname": "hands_on_requirement",
+   "fieldtype": "Select",
+   "label": "Hands on Requirement",
+   "options": "Simulators\nSurgical instruments\nSaw bones\nWet & Dry Lab Demonstration\nEndo - Station setups\nOT Setup\nSurgical Equipment & Resources\nHands-On Table requirements\nVR\nMisoo Robot Demo"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-03-30 09:54:20.178913",
+ "modified": "2026-06-18 16:44:35.329402",
  "modified_by": "Administrator",
  "module": "academy",
  "name": "Booking",

@@ -68,7 +68,7 @@ def create_booking(**kwargs):
 		data['event_status'] = 'Pending'
 		
 		# Ensure new fields are included if passed (explicitly listing valid fields is safer but kwargs.copy covers it)
-		# Fields: merilian_code, full_name, email, contact_number, mats_request_number, mats_event
+		# Fields: merilian_code, full_name, email, contact_number, mats_request_number, mats_event, hands_on_requirement
 		
 		# 3. Approver Logic
 		academy = data.get('academy')
@@ -486,6 +486,9 @@ def get_booking_details(booking_id=None):
 				return {"message": "You are not authorized to view this booking."}
 
 		doc_dict = doc.as_dict()
+		
+		# Explicitly include hands_on_requirement
+		doc_dict["hands_on_requirement"] = doc.hands_on_requirement
 		
 		# Fetch Vertical Name (Company Name)
 		if doc.vertical:
