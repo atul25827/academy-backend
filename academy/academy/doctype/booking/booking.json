@@ -289,12 +289,12 @@
    "fieldname": "hands_on_requirement",
    "fieldtype": "Select",
    "label": "Hands on Requirement",
-   "options": "Simulators\nSurgical instruments\nSaw bones\nWet & Dry Lab Demonstration\nEndo - Station setups\nOT Setup\nSurgical Equipment & Resources\nHands-On Table requirements\nVR\nMisoo Robot Demo"
+   "options": "Simulators\nSurgical instruments\nSaw bones\nWet & Dry Lab Demonstration\nEndo - Station setups\nOT Setup\nSurgical Equipment & Resources\nHands-On Table requirements\nVR\nMisso Robot Demo\nMizzo Endo4000 Robot Demo"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-06-18 16:44:35.329402",
+ "modified": "2026-08-06 09:54:13.707149",
  "modified_by": "Administrator",
  "module": "academy",
  "name": "Booking",
