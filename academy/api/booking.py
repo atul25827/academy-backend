@@ -1329,6 +1329,11 @@ def update_booking_event_planning(booking_id, event_planning_data, no_of_partici
 						new_start = str(row_data.get("event_start_time"))
 						if row_data.get("event_start_time") and old_start != new_start and not old_start.startswith(new_start):
 							changes.append(f"Event Start Time changed from {child.event_start_time} to {row_data.get('event_start_time')}")	
+						
+						old_date = str(child.event_date)
+						new_date = str(row_data.get("event_date"))
+						if row_data.get("event_date") and old_date != new_date:
+							changes.append(f"Event Date changed from {child.event_date} to {row_data.get('event_date')}")
 
 						if changes:
 							event_planning_changes.append(f"Row {child.idx}: {', '.join(changes)}")
@@ -1336,6 +1341,7 @@ def update_booking_event_planning(booking_id, event_planning_data, no_of_partici
 						# Apply updates 
 						child.hall = row_data.get("hall") or child.hall
 						child.booking_type = row_data.get("booking_type") or child.booking_type
+						child.event_date = row_data.get("event_date") or child.event_date
 						child.event_start_time = row_data.get("event_start_time") or child.event_start_time
 						child.event_end_time = row_data.get("event_end_time") or child.event_end_time
 
@@ -1348,6 +1354,7 @@ def update_booking_event_planning(booking_id, event_planning_data, no_of_partici
 					doc.append("event_planning", {
 						"hall": row_data.get("hall"),
 						"booking_type": row_data.get("booking_type"),
+						"event_date": row_data.get("event_date"),
 						"event_start_time": row_data.get("event_start_time"),
 						"event_end_time": row_data.get("event_end_time")
 					})
@@ -1358,6 +1365,7 @@ def update_booking_event_planning(booking_id, event_planning_data, no_of_partici
 				doc.append("event_planning", {
 					"hall": row_data.get("hall"),
 					"booking_type": row_data.get("booking_type"),
+					"event_date": row_data.get("event_date"),
 					"event_start_time": row_data.get("event_start_time"),
 					"event_end_time": row_data.get("event_end_time")
 				})
