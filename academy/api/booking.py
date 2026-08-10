@@ -479,13 +479,16 @@ def get_booking_details(booking_id=None):
 		
 		# Ensure the user has permission to view this document
 		user = frappe.session.user
-		if user != "Administrator" and user != doc.owner:
-			roles = frappe.get_roles(user)
-			if "Academy Admin" not in roles and "System Manager" not in roles:
-				frappe.local.response['http_status_code'] = 403
-				return {"message": "You are not authorized to view this booking."}
+		# if user != "Administrator" and user != doc.owner:
+		# 	roles = frappe.get_roles(user)
+		# 	if "Academy Admin" not in roles and "System Manager" not in roles:
+		# 		frappe.local.response['http_status_code'] = 403
+		# 		return {"message": "You are not authorized to view this booking."}
 
 		doc_dict = doc.as_dict()
+		
+		# Check if current user is owner (case and whitespace insensitive)
+		doc_dict["is_owner"] = bool(str(user).strip().lower() == str(doc.owner).strip().lower())
 		
 		# Explicitly include hands_on_requirement
 		doc_dict["hands_on_requirement"] = doc.hands_on_requirement
