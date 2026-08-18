@@ -4,15 +4,16 @@ from frappe.utils import getdate, nowdate
 import random
 from academy.api.utils import _send_booking_email
 
-def _check_hall_clash(hall, event_date, start_time, end_time, ignore_booking=None):
+def _check_hall_clash(hall, event_date, start_time, end_time, ignore_booking=None, ignore_event_planning=None):
 	query = """
-		SELECT c.parent, c.hall, c.event_date, c.event_start_time, c.event_end_time
+		SELECT c.name, c.parent, c.hall, c.event_date, c.event_start_time, c.event_end_time
 		FROM `tabEvent Planning Child` c
 		JOIN `tabBooking` p ON c.parent = p.name
 		WHERE c.hall = %s AND c.event_date = %s
 		AND IFNULL(p.is_submitted, 1) = 1 
 		AND p.is_rejected = 0 
 		AND p.is_cancelled = 0
+		AND IFNULL(c.is_deleted, 0) = 0
 		AND (
 			CAST(%s AS TIME) < c.event_end_time AND CAST(%s AS TIME) > c.event_start_time
 		)
@@ -22,15 +23,19 @@ def _check_hall_clash(hall, event_date, start_time, end_time, ignore_booking=Non
 	if ignore_booking:
 		query += " AND p.name != %s"
 		params.append(ignore_booking)
+	
+	if ignore_event_planning:
+		query += " AND c.name != %s"
+		params.append(ignore_event_planning)
 		
 	return frappe.db.sql(query, tuple(params), as_dict=True)
 
 @frappe.whitelist()
-def check_hall_availability(hall, event_date, start_time, end_time, booking_id=None):
+def check_hall_availability(hall, event_date, start_time, end_time, booking_id=None, event_planning_name=None):
 	"""
 	API to check if a hall is available on a specific date and time.
 	"""
-	clashes = _check_hall_clash(hall, event_date, start_time, end_time, booking_id)
+	clashes = _check_hall_clash(hall, event_date, start_time, end_time, ignore_booking=booking_id, ignore_event_planning=event_planning_name)
 	
 	if clashes:
 		c = clashes[0]
@@ -140,7 +145,7 @@ def create_booking(**kwargs):
 				end_time = row.get("event_end_time")
 				
 				if hall and event_date and start_time and end_time:
-					clashes = _check_hall_clash(hall, event_date, start_time, end_time)
+					clashes = _check_hall_clash(hall, event_date, start_time, end_time, ignore_booking=booking_id)
 					if clashes:
 						c = clashes[0]
 						frappe.throw(_("Hall '{0}' is already booked on {1} between {2} and {3}. Please select a different time.").format(
@@ -395,8 +400,14 @@ def get_booking_list(page_number=1, page_length=20, academy=None, hall=None, sta
 		if status and status != "all":
 			filters.append(["Booking", "event_status", "=", status])
 
+		or_filters = []
 		if search_name:
-			filters.append(["Booking", "booking_id", "like", f"%{search_name}%"])
+			or_filters = [
+				["Booking", "booking_id", "like", f"%{search_name}%"],
+				["Booking", "academy", "like", f"%{search_name}%"],
+				["Booking", "event_title", "like", f"%{search_name}%"],
+				["Booking", "full_name", "like", f"%{search_name}%"]
+			]
 
 		if hall and hall != "all":
 			booking_names_with_hall = frappe.get_all(
@@ -423,6 +434,7 @@ def get_booking_list(page_number=1, page_length=20, academy=None, hall=None, sta
 		data = frappe.get_list(
 			"Booking",
 			filters=filters,
+			or_filters=or_filters,
 			fields=[
 				"name", "booking_id", "academy", "event_title", "event_status",
 				"event_start_date", "event_end_date", "overall_status", "creation", "owner","booking_status"
@@ -439,7 +451,7 @@ def get_booking_list(page_number=1, page_length=20, academy=None, hall=None, sta
 
 
 		# Fetch Total Count using ORM
-		total_count = frappe.db.count("Booking", filters=filters)
+		total_count = len(frappe.get_all("Booking", filters=filters, or_filters=or_filters, pluck="name"))
 
 		return {
 			"data": data,
@@ -548,6 +560,23 @@ def get_booking_details(booking_id=None):
 			and getdate(doc.event_start_date) > getdate(nowdate())
 		)
 		doc_dict["is_cancellable"] = bool(is_cancellable)
+
+		# Can edit: Academy Admin and event end date not passed (or not set)
+		roles = frappe.get_roles(user)
+		can_edit = "Academy Admin" in roles and (not doc.event_end_date or getdate(doc.event_end_date) >= getdate(nowdate()))
+		doc_dict["can_edit"] = bool(can_edit)
+
+		# Filter out deleted event_planning rows
+		if "event_planning" in doc_dict:
+			doc_dict["event_planning"] = [row for row in doc_dict["event_planning"] if not row.get("is_deleted")]
+
+		# Count unique days in event_planning
+		unique_days = set()
+		for row in doc_dict.get("event_planning", []):
+			if row.get("event_date"):
+				unique_days.add(row.get("event_date"))
+		
+		doc_dict["planned_days_count"] = len(unique_days)
 
 		if "approver" in doc_dict:
 			del doc_dict["approver"]
@@ -796,8 +825,14 @@ def get_approver_booking_list(page_number=1, page_length=10, status=None, search
 				filters.append(["Booking", "event_status", "=", status])
 
 		# 4. Search Filter
+		or_filters = []
 		if search_name:
-			filters.append(["Booking", "booking_id", "like", f"%{search_name}%"])
+			or_filters = [
+				["Booking", "booking_id", "like", f"%{search_name}%"],
+				["Booking", "academy", "like", f"%{search_name}%"],
+				["Booking", "event_title", "like", f"%{search_name}%"],
+				["Booking", "full_name", "like", f"%{search_name}%"]
+			]
 
 		# 5. Hall Filter (Child Table)
 		if hall and hall != "all":
@@ -833,6 +868,7 @@ def get_approver_booking_list(page_number=1, page_length=10, status=None, search
 		data = frappe.get_list(
 			"Booking",
 			filters=filters,
+			or_filters=or_filters,
 			fields=[
 				"name", "booking_id", "academy", "event_title", "event_status", 
 				"event_start_date", "event_end_date", "overall_status", "creation", "owner"
@@ -847,7 +883,7 @@ def get_approver_booking_list(page_number=1, page_length=10, status=None, search
 			row["full_name"] = frappe.utils.get_fullname(row["owner"])
 		
 		# Total Count
-		total_count = frappe.db.count("Booking", filters=filters)
+		total_count = len(frappe.get_all("Booking", filters=filters, or_filters=or_filters, pluck="name"))
 
 		return {
 			"data": data,
@@ -1133,8 +1169,14 @@ def get_booking_export(academy=None, hall=None, status=None, search_name=None):
 			filters.append(["Booking", "academy", "=", academy])
 
 		# 3. Search Filter
+		or_filters = []
 		if search_name:
-			filters.append(["Booking", "booking_id", "like", f"%{search_name}%"])
+			or_filters = [
+				["Booking", "booking_id", "like", f"%{search_name}%"],
+				["Booking", "academy", "like", f"%{search_name}%"],
+				["Booking", "event_title", "like", f"%{search_name}%"],
+				["Booking", "full_name", "like", f"%{search_name}%"]
+			]
 
 		# 4. Status Filter
 		if status and status != "all":
@@ -1672,5 +1714,40 @@ def check_pending_attendance():
 
 	except Exception as e:
 		frappe.log_error(title="Check Pending Attendance Error", message=str(e))
+		frappe.local.response['http_status_code'] = 500
+		return {"error": str(e)}
+
+@frappe.whitelist()
+def delete_event_planning(event_planning_name):
+	"""
+	Delete (soft delete) an event planning row by setting is_deleted=1.
+	"""
+	try:
+		if not frappe.db.exists("Event Planning Child", event_planning_name):
+			frappe.local.response['http_status_code'] = 404
+			return {"message": "Event planning not found"}
+			
+		child_doc = frappe.get_doc("Event Planning Child", event_planning_name)
+		child_doc.db_set("is_deleted", 1)
+		
+		# Trigger parent save to update dates
+		parent_doc = frappe.get_doc("Booking", child_doc.parent)
+		parent_doc.save(ignore_permissions=True)
+		
+		try:
+			event_date = child_doc.get("event_date")
+			hall = child_doc.get("hall")
+			log_booking_action(
+				child_doc.parent,
+				"Event Planning Deleted",
+				comment=f"Deleted event planning for date {event_date} for hall {hall}"
+			)
+		except Exception:
+			pass
+			
+		return {"message": "Event planning deleted successfully"}
+		
+	except Exception as e:
+		frappe.log_error(title="Delete Event Planning Error", message=str(e))
 		frappe.local.response['http_status_code'] = 500
 		return {"error": str(e)}
