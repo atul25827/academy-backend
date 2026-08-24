@@ -615,7 +615,7 @@ def get_calendar_bookings(start_date=None, end_date=None, academy=None, hall=Non
 			# Using get_all on child table is efficient for filtering parent
 			booking_names = frappe.get_all(
 				"Event Planning Child",
-				filters={"hall": hall},
+				filters={"hall": hall, "is_deleted": 0},
 				pluck="parent",
 				distinct=True
 			)
@@ -662,6 +662,7 @@ def get_calendar_bookings(start_date=None, end_date=None, academy=None, hall=Non
 		frappe.log_error(title="Calendar Booking Error", message=str(e))
 		return []
 
+		
 @frappe.whitelist(allow_guest=True)
 def get_upcoming_bookings():
 	"""
@@ -1701,7 +1702,8 @@ def check_pending_attendance():
 				"event_end_date": ["<", today],
 				"attendence_submitted": 0,
 				"is_approved": 1,
-				"is_cancelled": 0
+				"is_cancelled": 0,
+				"is_external": 1
 			},
 			fields=[
 				"name", "booking_id", "event_title", "academy",

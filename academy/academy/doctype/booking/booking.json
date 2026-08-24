@@ -41,6 +41,7 @@
   "attendence_submitted",
   "cancel_comment",
   "is_deleted",
+  "is_external",
   "event_plan_tab",
   "event_planning",
   "approver_tab",
@@ -290,11 +291,17 @@
    "fieldtype": "Select",
    "label": "Hands on Requirement",
    "options": "Simulators\nSurgical instruments\nSaw bones\nWet & Dry Lab Demonstration\nEndo - Station setups\nOT Setup\nSurgical Equipment & Resources\nHands-On Table requirements\nVR\nMisso Robot Demo\nMizzo Endo4000 Robot Demo"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_external",
+   "fieldtype": "Check",
+   "label": "Is External"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-08-06 09:54:13.707149",
+ "modified": "2026-08-24 12:37:51.758565",
  "modified_by": "Administrator",
  "module": "academy",
  "name": "Booking",
