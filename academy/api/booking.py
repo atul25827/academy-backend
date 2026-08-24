@@ -759,7 +759,7 @@ def get_approver_stats():
 		return {"error": str(e)}
 
 @frappe.whitelist()
-def get_approver_booking_list(page_number=1, page_length=10, status=None, search_name=None, academy=None, hall=None):
+def get_approver_booking_list(page_number=1, page_length=10, status=None, search_name=None, academy=None, hall=None, event_start_date=None, event_end_date=None):
 	"""
 	Fetch list of bookings where current user is Owner OR Approver using Frappe ORM.
 	Supported Filters: Status, Search (Booking ID), Academy, Hall.
@@ -861,6 +861,12 @@ def get_approver_booking_list(page_number=1, page_length=10, status=None, search
 					"page_number": page_number,
 					"total_pages": 0
 				}
+
+		# 6. Date Filters
+		if event_start_date:
+			filters.append(["Booking", "event_start_date", ">=", event_start_date])
+		if event_end_date:
+			filters.append(["Booking", "event_end_date", "<=", event_end_date])
 
 		# Apply the final list of allowed booking IDs
 		filters.append(["Booking", "name", "in", list(allowed_ids)])
