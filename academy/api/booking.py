@@ -1319,7 +1319,7 @@ def get_booking_export(academy=None, hall=None, status=None, search_name=None):
 		return {"error": str(e)}
 
 @frappe.whitelist()
-def update_booking_event_planning(booking_id, event_planning_data, no_of_participants=None, no_of_participants_international=None):
+def update_booking_event_planning(booking_id, event_planning_data, no_of_participants=None, no_of_participants_international=None, event_title=None, description=None):
 	try:
 		# 1. Permission Check
 		user = frappe.session.user
@@ -1348,6 +1348,12 @@ def update_booking_event_planning(booking_id, event_planning_data, no_of_partici
 		
 		if no_of_participants_international is not None:
 			doc.no_of_participants_international = no_of_participants_international
+
+		if event_title is not None:
+			doc.event_title = event_title
+			
+		if description is not None:
+			doc.description = description
 
 
 		# Track changes for logging
