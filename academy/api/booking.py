@@ -1437,6 +1437,10 @@ def update_booking_event_planning(booking_id, event_planning_data, no_of_partici
 				details.append(f"No. of Participants updated to {no_of_participants}")
 			if no_of_participants_international is not None:
 				details.append(f"No. of International Participants updated to {no_of_participants_international}")
+			if event_title is not None:
+				details.append(f"Event Title updated to {event_title}")
+			if description is not None:
+				details.append(f"Description updated to {description}")
 			
 			if event_planning_changes:
 				details.extend(event_planning_changes)
