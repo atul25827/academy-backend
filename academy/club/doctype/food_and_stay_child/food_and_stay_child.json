@@ -132,15 +132,15 @@
   },
   {
    "fieldname": "check_in_date",
-   "fieldtype": "Date",
+   "fieldtype": "Datetime",
    "in_list_view": 1,
-   "label": "Check In Date"
+   "label": "Check In Date and Time"
   },
   {
    "fieldname": "check_out_date",
    "fieldtype": "Datetime",
    "in_list_view": 1,
-   "label": "Check Out Date"
+   "label": "Check Out Date Time"
   },
   {
    "default": "0",
@@ -175,7 +175,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-03-31 10:20:38.905638",
+ "modified": "2026-09-11 16:24:47.367670",
  "modified_by": "Administrator",
  "module": "club",
  "name": "Food and Stay Child",
