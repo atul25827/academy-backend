@@ -40,6 +40,104 @@ def generate_club_booking_id():
 	return f"{prefix}{next_num:05d}"
 
 
+
+def _send_booking_email(to, subject, message, doc, recipient_name, redirect_path=""):
+	"""
+	Helper method to send an email notification.
+	"""
+	if not to:
+		return
+
+	frontend_url = frappe.utils.get_url()
+	doc_link = f"{frontend_url}{redirect_path}"
+	
+	html_content = frappe.render_template("""
+<div style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">
+    
+    <p>Hello {{ recipient_name }},</p>
+
+    <p>{{ message }}</p>
+
+    <hr style="margin: 16px 0;" />
+
+    <h4>Booking Details</h4>
+    <table cellpadding="6" cellspacing="0" border="0">
+        <tr><td><b>Booking ID:</b></td><td>{{ doc.club_booking_id }}</td></tr>
+        <tr><td><b>Guest Region:</b></td><td>{{ doc.guest_region }}</td></tr>
+        <tr><td><b>Event Name:</b></td><td>{{ doc.event_name }}</td></tr>
+        <tr><td><b>From Date:</b></td><td>{{ doc.from_date }}</td></tr>
+        <tr><td><b>To Date:</b></td><td>{{ doc.to_date }}</td></tr>
+        {% if doc.get('cancel_comment') %}
+        <tr><td><b>Cancel Comment:</b></td><td>{{ doc.cancel_comment }}</td></tr>
+        {% endif %}
+    </table>
+
+    <br/>
+
+    <p>
+        <a href="{{ doc_link }}" 
+           style="background:#4f46e5;color:#fff;padding:8px 12px;text-decoration:none;border-radius:6px;">
+           View Booking
+        </a>
+    </p>
+
+    <br/>
+    <p>Thanks,<br/>Academy Team</p>
+
+</div>
+	""", {
+		"recipient_name": recipient_name,
+		"message": message,
+		"doc": doc,
+		"doc_link": doc_link
+	})
+	
+	frappe.sendmail(
+		recipients=to,
+		subject=subject,
+		message=html_content,
+		now=True
+	)
+
+def log_booking_action(booking_id, action, comment=None, remark=None, status=None):
+	"""
+	Helper to create a Booking Log entry.
+	"""
+	try:
+		user = frappe.session.user
+		
+		roles = frappe.get_roles(user)
+		user_role = "User"
+		if "System Manager" in roles or "Academy Admin" in roles:
+			user_role = "Admin" 
+		elif "Academy User" in roles:
+			user_role = "Requestor"
+		
+		try:
+			owner = frappe.db.get_value("Club Booking", booking_id, "owner")
+			if owner == user:
+				user_role = "Requestor"
+			
+			if action in ["Approved", "Rejected", "Cancellation Approved", "Cancellation Rejected"]:
+				user_role = "Admin"
+		except:
+			pass
+
+		log = frappe.get_doc({
+			"doctype": "Booking Log",
+			"booking": booking_id,
+			"action": action,
+			"action_by": user,
+			"user_role": user_role,
+			"comment": comment,
+			"remark": remark,
+			"status": status or frappe.db.get_value("Club Booking", booking_id, "booking_status")
+		})
+		log.insert(ignore_permissions=True)
+
+	except Exception as e:
+		frappe.log_error(title="Club Booking Log Error", message=str(e))
+
 def _parse_child_tables(data):
 	"""
 	Helper Method: Parses JSON strings for child tables.
@@ -247,7 +345,34 @@ def submit_booking(**kwargs):
 			doc.insert(ignore_permissions=True)
 		else:
 			doc.save(ignore_permissions=True)
-
+			
+		log_booking_action(booking_id=doc.name, action="Submitted", status="Submitted")
+		
+		try:
+			# To Requestor
+			_send_booking_email(
+				to=[doc.get("email") or doc.owner],
+				subject="Booking Submitted",
+				message="Your booking has been submitted successfully and is now awaiting approval.",
+				doc=doc,
+				recipient_name=doc.get("full_name") or frappe.utils.get_fullname(doc.owner),
+				redirect_path="/club-booking-list"
+			)
+			# To First Approver
+			if doc.get("approver") and len(doc.approver) > 0:
+				first_approver_email = doc.approver[0].approver_name
+				first_approver_fullname = frappe.db.get_value("User", first_approver_email, "full_name") or first_approver_email
+				_send_booking_email(
+					to=[first_approver_email],
+					subject="Action Required: New Booking Approval",
+					message="A new booking requires your approval. Please review the details below.",
+					doc=doc,
+					recipient_name=first_approver_fullname,
+					redirect_path="/club-booking-list"
+				)
+		except Exception as e:
+			frappe.log_error(title="Club Booking Submit Email Error", message=str(e))
+        
 		return {
 			"status": "success",
 			"message": _("Booking Submitted Successfully for Approval."),
@@ -796,21 +921,69 @@ def update_club_booking_status(club_booking_id, action, remark=None):
 				
 				next_name = frappe.utils.get_fullname(next_approver_row.approver_name)
 				doc.approval_status = f"Awaiting Approval from {next_name}"
+				
+				try:
+					_send_booking_email(
+						to=[user],
+						subject="Booking Approved",
+						message="You have approved this booking. It has been forwarded to the next approver.",
+						doc=doc,
+						recipient_name=current_approver_name,
+						redirect_path="/club-booking-list"
+					)
+					_send_booking_email(
+						to=[next_approver_row.approver_name],
+						subject="Action Required: Booking Approval",
+						message="A booking requires your approval. Please review the details below.",
+						doc=doc,
+						recipient_name=next_name,
+						redirect_path="/club-booking-list"
+					)
+				except Exception as e:
+					frappe.log_error(title="Intermediate Approval Email Error", message=str(e))
+					
 			else:
 				# --- Last approver approved ---
 				doc.booking_status = "Approved"
 				doc.is_approved = 1
 				doc.approval_status = f"Approved By {current_approver_name}"
+				
+				try:
+					_send_booking_email(
+						to=[doc.get("email") or doc.owner],
+						subject="Booking Approved Fully",
+						message="Your booking has been fully approved.",
+						doc=doc,
+						recipient_name=doc.get("full_name") or frappe.utils.get_fullname(doc.owner),
+						redirect_path="/club-booking-list"
+					)
+				except Exception as e:
+					frappe.log_error(title="Final Approval Email Error", message=str(e))
 
 		elif action == "Reject":
 			# Booking Request Rejected
 			doc.is_rejected = 1
 			doc.booking_status = "Rejected"
 			doc.approval_status = f"Rejected By {current_approver_name}"
+			
+			try:
+				_send_booking_email(
+					to=[doc.get("email") or doc.owner],
+					subject="Booking Rejected",
+					message=f"Your booking has been rejected by {current_approver_name}.",
+					doc=doc,
+					recipient_name=doc.get("full_name") or frappe.utils.get_fullname(doc.owner),
+					redirect_path="/club-booking-list"
+				)
+			except Exception as e:
+				frappe.log_error(title="Rejection Email Error", message=str(e))
 
 		# Save the document with the updated statuses
 		doc.save(ignore_permissions=True)
 		frappe.db.commit()
+		
+		# Log action
+		log_booking_action(booking_id=doc.name, action="Approved" if action == "Approve" else "Rejected", remark=remark, status=doc.booking_status)
 		
 		return {
 			"status": "success",

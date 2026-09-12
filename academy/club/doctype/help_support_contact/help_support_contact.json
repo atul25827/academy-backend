@@ -1,0 +1,77 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-09-12 15:05:44.048306",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "department",
+  "contact_type",
+  "contact_value",
+  "label",
+  "is_primary",
+  "enabled",
+  "display_order"
+ ],
+ "fields": [
+  {
+   "fieldname": "department",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Department",
+   "options": "Club House\nIT"
+  },
+  {
+   "fieldname": "contact_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Contact Type",
+   "options": "Phone\nEmail"
+  },
+  {
+   "fieldname": "contact_value",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Contact Value"
+  },
+  {
+   "description": "Club Admin / IT Support",
+   "fieldname": "label",
+   "fieldtype": "Data",
+   "label": "Label"
+  },
+  {
+   "default": "1",
+   "fieldname": "is_primary",
+   "fieldtype": "Check",
+   "label": "Is Primary"
+  },
+  {
+   "default": "1",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Enabled"
+  },
+  {
+   "fieldname": "display_order",
+   "fieldtype": "Int",
+   "label": "Display Order"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-09-12 15:11:11.012841",
+ "modified_by": "Administrator",
+ "module": "club",
+ "name": "Help Support Contact",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
