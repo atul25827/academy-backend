@@ -14,6 +14,15 @@ from academy.api.utils import send_mail
 RESET_TOKEN_EXPIRY_HOURS = 24
 MIN_PASSWORD_LENGTH = 8
 
+# Whitelisted frontend URLs keyed by app_name.
+# These are the ONLY URLs that reset links will point to.
+# Add new frontends here as needed.
+FRONTEND_URLS = {
+    "academy": frappe.get_conf().get("academy_frontend_url", "http://127.0.0.1:3000"),
+    "club":    frappe.get_conf().get("club_frontend_url",    "http://127.0.0.1:3001"),
+}
+DEFAULT_APP = "academy"
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -434,14 +443,18 @@ def register_user(employee_code: str, email: str, password: str):
 # ===========================================================================
 
 @frappe.whitelist(allow_guest=True)
-def forgot_password(email: str):
+def forgot_password(email: str, app_name: str = None):
     """
     Generate a password-reset token and send it to the user's email.
 
     Endpoint: POST /api/method/academy.api.auth.forgot_password
 
     Request body:
-        {"email": "user@example.com"}
+        {"email": "user@example.com", "app_name": "academy"}
+        {"email": "user@example.com", "app_name": "club"}
+
+    app_name determines which frontend the reset link points to.
+    Defaults to "academy" if not provided.
 
     Success (200):
         {"success_key": 1, "message": "Reset link sent to email"}
@@ -484,8 +497,12 @@ def forgot_password(email: str):
         )
         frappe.db.commit()
 
-        # ── Build reset link ─────────────────────────────────────────────
-        frontend_url = frappe.get_conf().get("frontend_url", frappe.utils.get_url())
+        # ── Build reset link (dynamic per frontend app) ──────────────────
+        resolved_app = (app_name or DEFAULT_APP).strip().lower()
+        frontend_url = FRONTEND_URLS.get(resolved_app)
+        if not frontend_url:
+            frappe.logger().warning(f"forgot_password: Unknown app_name '{resolved_app}', falling back to default.")
+            frontend_url = FRONTEND_URLS.get(DEFAULT_APP, frappe.utils.get_url())
         reset_link = f"{frontend_url}/reset?token={token}"
 
         # ── Send email ───────────────────────────────────────────────────
