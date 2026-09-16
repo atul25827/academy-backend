@@ -108,9 +108,9 @@ def log_booking_action(booking_id, action, comment=None, remark=None, status=Non
 		
 		roles = frappe.get_roles(user)
 		user_role = "User"
-		if "System Manager" in roles or "Academy Admin" in roles:
+		if "System Manager" in roles or "Club Admin" in roles:
 			user_role = "Admin" 
-		elif "Academy User" in roles:
+		elif "Club User" in roles:
 			user_role = "Requestor"
 		
 		try:
@@ -125,7 +125,7 @@ def log_booking_action(booking_id, action, comment=None, remark=None, status=Non
 
 		log = frappe.get_doc({
 			"doctype": "Booking Log",
-			"booking": booking_id,
+			"club_booking": booking_id,
 			"action": action,
 			"action_by": user,
 			"user_role": user_role,
@@ -1000,3 +1000,190 @@ def update_club_booking_status(club_booking_id, action, remark=None):
 			"message": _("Failed to update booking status."), 
 			"details": str(e)
 		}
+
+@frappe.whitelist()
+def get_club_booking_audit_trail(booking_id):
+	"""
+	Fetch audit trail logs for a club booking.
+	"""
+	try:
+		if not frappe.db.exists("Club Booking", booking_id):
+			return {"message": []}
+
+		logs = frappe.get_all("Booking Log", 
+			filters={"club_booking": booking_id},
+			fields=["creation", "action", "action_by", "user_role", "comment", "status", "remark"],
+			order_by="creation asc"
+		)
+		
+		timeline = []
+		for log in logs:
+			full_name = frappe.utils.get_fullname(log.action_by)
+			
+			timeline.append({
+				"timestamp": log.creation,
+				"action": log.action,
+				"user": full_name,
+				"user_role": log.user_role,
+				"comment": log.comment or log.remark,
+				"status": log.status
+			})
+			
+		return {"message": timeline}
+
+	except Exception as e:
+		frappe.log_error("Club Booking Audit Trail Error", str(e))
+		return {"message": []}
+
+
+@frappe.whitelist()
+def get_club_booking_export(status=None, search_name=None):
+	"""
+	Export club bookings with logic based on User Role:
+	- Club Admin / System Manager: Filter by Owner OR Approver (Approver Logic)
+	- Others: Filter by Owner (User Logic)
+	- Includes Food and Catering + Stay child table data.
+	"""
+	try:
+		user = frappe.session.user
+		roles = frappe.get_roles(user)
+
+		filters = []
+		allowed_ids = None
+
+		# 1. Determine Scope based on Role
+		if "Club Admin" in roles or "System Manager" in roles:
+			# --- Approver Logic ---
+			owner_bookings = frappe.get_all("Club Booking", filters={"owner": user}, pluck="name")
+			approver_bookings = frappe.get_all(
+				"Club Approver List Child",
+				filters={"approver_name": user, "parenttype": "Club Booking"},
+				pluck="parent"
+			)
+			allowed_ids = set(owner_bookings + approver_bookings)
+
+			if not allowed_ids:
+				return {"data": []}
+		else:
+			# --- Regular User Logic ---
+			filters.append(["Club Booking", "owner", "=", user])
+
+		# 2. Search Filter
+		or_filters = []
+		if search_name:
+			search_pattern = f"%{search_name}%"
+			or_filters = [
+				["Club Booking", "club_booking_id", "like", search_pattern],
+				["Club Booking", "event_name", "like", search_pattern],
+				["Club Booking", "guest_region", "like", search_pattern],
+			]
+
+		# 3. Status Filter
+		if status and status != "all":
+			if (allowed_ids is not None) and status == "Awaiting":
+				awaiting_bookings = frappe.get_all(
+					"Club Approver List Child",
+					filters={
+						"approver_name": user,
+						"approver_status": "Awaiting",
+						"parenttype": "Club Booking"
+					},
+					pluck="parent"
+				)
+				if not awaiting_bookings:
+					return {"data": []}
+
+				allowed_ids = allowed_ids.intersection(set(awaiting_bookings))
+				if not allowed_ids:
+					return {"data": []}
+			elif status == "Approved":
+				filters.append(["Club Booking", "is_approved", "=", 1])
+			elif status == "Rejected":
+				filters.append(["Club Booking", "is_rejected", "=", 1])
+			elif status == "Cancelled":
+				filters.append(["Club Booking", "is_cancelled", "=", 1])
+			elif status == "Pending":
+				filters.append(["Club Booking", "is_submitted", "=", 1])
+				filters.append(["Club Booking", "is_approved", "=", 0])
+				filters.append(["Club Booking", "is_rejected", "=", 0])
+				filters.append(["Club Booking", "is_cancelled", "=", 0])
+			elif status == "Draft":
+				filters.append(["Club Booking", "booking_status", "=", "Draft"])
+			else:
+				filters.append(["Club Booking", "booking_status", "=", status])
+
+		# 4. Apply Final Allowed IDs (for Approver Logic)
+		if allowed_ids is not None:
+			filters.append(["Club Booking", "name", "in", list(allowed_ids)])
+
+		# Fetch All Bookings matching filters
+		data = frappe.get_all(
+			"Club Booking",
+			filters=filters,
+			or_filters=or_filters if or_filters else None,
+			fields=["*"],
+			order_by="creation desc"
+		)
+
+		if not data:
+			return {"data": []}
+
+		# Helper: Format date to dd/mm/yyyy
+		def _fmt_date(val):
+			if not val:
+				return val
+			try:
+				d = getdate(val)
+				return d.strftime("%d/%m/%Y")
+			except Exception:
+				return val
+
+		# Fetch Child Table Data (Food and Catering + Stay)
+		booking_names = [d.name for d in data]
+
+		food_data = frappe.get_all(
+			"Food and Stay Child",
+			filters={"parent": ["in", booking_names], "parentfield": "food_and_catering"},
+			fields=["*"],
+			order_by="idx asc"
+		)
+
+		stay_data = frappe.get_all(
+			"Food and Stay Child",
+			filters={"parent": ["in", booking_names], "parentfield": "stay"},
+			fields=["*"],
+			order_by="idx asc"
+		)
+
+		# Group child rows by parent
+		from collections import defaultdict
+		food_map = defaultdict(list)
+		for child in food_data:
+			if child.get("check_in_date"):
+				child["check_in_date"] = _fmt_date(child["check_in_date"])
+			if child.get("check_out_date"):
+				child["check_out_date"] = _fmt_date(child["check_out_date"])
+			food_map[child.parent].append(child)
+
+		stay_map = defaultdict(list)
+		for child in stay_data:
+			if child.get("check_in_date"):
+				child["check_in_date"] = _fmt_date(child["check_in_date"])
+			if child.get("check_out_date"):
+				child["check_out_date"] = _fmt_date(child["check_out_date"])
+			stay_map[child.parent].append(child)
+
+		# Enrich parent rows
+		for row in data:
+			row["food_and_catering"] = food_map.get(row.name, [])
+			row["stay"] = stay_map.get(row.name, [])
+			row["full_name"] = frappe.utils.get_fullname(row.get("owner"))
+			row["from_date"] = _fmt_date(row.get("from_date"))
+			row["to_date"] = _fmt_date(row.get("to_date"))
+
+		return {"data": data}
+
+	except Exception as e:
+		frappe.log_error(title="Club Booking Export Error", message=frappe.get_traceback())
+		frappe.local.response['http_status_code'] = 500
+		return {"error": str(e)}

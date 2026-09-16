@@ -47,3 +47,33 @@ def get_help_support_settings(app_name=None):
             "contacts": contacts
         }
     }
+
+@frappe.whitelist()
+def fetch_tutorial_videos():
+    """
+    API to fetch Tutorial Videos
+    Path: /api/method/academy.api.support.fetch_tutorial_videos
+    """
+    try:
+        doc = frappe.get_all(
+            "Tutorial Videos",
+            filters={"is_deleted": 0},
+            fields=["title", "description", "video_attachment"]
+        )
+        
+        for d in doc:
+            if d.get("video_attachment"):
+                d["video_attachment"] = frappe.utils.get_url(d["video_attachment"])
+
+        return {
+            "status": "success",
+            "data": doc
+        }
+    except Exception as e:
+        frappe.log_error(title="Fetch Tutorial Videos Error", message=frappe.get_traceback())
+        frappe.local.response['http_status_code'] = 500
+        return {
+            "status": "error",
+            "message": "Failed to fetch tutorial videos. Please try again later.",
+            "error": str(e)
+        }

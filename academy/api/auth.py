@@ -743,3 +743,80 @@ def cleanup_expired_otps():
     except Exception as e:
         frappe.db.rollback()
         frappe.log_error(title="OTP Cleanup Error", message=str(e))
+
+
+# ===========================================================================
+# 8. CHANGE PASSWORD (Authenticated user changes their own password)
+# ===========================================================================
+
+@frappe.whitelist()
+def change_user_password(**data):
+    """
+    Change the current user's password by verifying the old one first.
+
+    Endpoint: POST /api/method/academy.api.auth.change_user_password
+
+    Request body:
+        {
+            "user": "user@example.com",
+            "current_password": "OldPass@123",
+            "new_password": "NewSecurePass@456",
+            "logout_all_sessions": 0
+        }
+
+    Success (200):
+        {"success_key": 1, "message": "Password updated successfully ..."}
+
+    Errors:
+        400 – missing fields / weak new password
+        401 – wrong current password / not authorized
+        500 – unexpected server error
+    """
+    try:
+        user = data.get("user")
+        current_password = data.get("current_password")
+        new_password = data.get("new_password")
+        logout_all_sessions = data.get("logout_all_sessions", 0)
+
+        if not user or not current_password:
+            return _error("User and current password are required.", 400)
+
+        if not new_password:
+            return _error("New password is required.", 400)
+
+        # Only allow changing own password (or Administrator)
+        if frappe.session.user != "Administrator" and frappe.session.user != user:
+            return _error("You are not authorized to change another user's password.", 401)
+
+        # Validate new password strength
+        is_strong, reason = _validate_password_strength(new_password)
+        if not is_strong:
+            return _error(reason, 400)
+
+        # Verify current password
+        try:
+            check_password(user, current_password)
+        except frappe.AuthenticationError:
+            return _error("The current password you entered is incorrect.", 401)
+
+        # Update to new password
+        update_password(user, new_password)
+
+        if int(logout_all_sessions) == 1:
+            frappe.sessions.clear_sessions(user, keep_current=False, force=True)
+            frappe.clear_cache(user=user)
+            frappe.local.response["http_status_code"] = 200
+            return {
+                "success_key": 1,
+                "message": "Password updated successfully. All other sessions have been logged out."
+            }
+
+        frappe.local.response["http_status_code"] = 200
+        return {
+            "success_key": 1,
+            "message": "Password updated successfully."
+        }
+
+    except Exception as e:
+        return _error("An unexpected error occurred.", 500,
+                      log_message=f"change_user_password error: {str(e)}")
