@@ -7,6 +7,8 @@
  "field_order": [
   "distributor_name",
   "billing_address",
+  "company",
+  "division",
   "column_break_fuhc",
   "distributor_code",
   "email",
@@ -65,12 +67,24 @@
    "fieldtype": "Link",
    "label": "State",
    "options": "State List"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Master Company"
+  },
+  {
+   "fieldname": "division",
+   "fieldtype": "Link",
+   "label": "Division",
+   "options": "Master Division"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-09-18 11:05:39.269839",
+ "modified": "2026-09-18 17:08:37.047377",
  "modified_by": "Administrator",
  "module": "master",
  "name": "Master Distributor",
