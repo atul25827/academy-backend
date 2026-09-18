@@ -11,9 +11,12 @@
   "total_no_of_guest",
   "food_preferences",
   "meal_type",
-  "distributor_or_guest_name",
+  "guest_type",
+  "guest_name",
+  "distributor_name",
+  "account_name",
+  "contact_name",
   "designation",
-  "firm_or_hospital_name",
   "repeat_guest",
   "state",
   "country",
@@ -69,22 +72,10 @@
    "label": "Remark"
   },
   {
-   "fieldname": "distributor_or_guest_name",
-   "fieldtype": "Data",
-   "in_list_view": 1,
-   "label": "Distributor or Guest Name"
-  },
-  {
    "fieldname": "designation",
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Designation"
-  },
-  {
-   "fieldname": "firm_or_hospital_name",
-   "fieldtype": "Data",
-   "in_list_view": 1,
-   "label": "Firm or Hospital Name"
   },
   {
    "fieldname": "repeat_guest",
@@ -169,13 +160,47 @@
    "fieldtype": "Check",
    "in_list_view": 1,
    "label": "Is Deleted"
+  },
+  {
+   "fieldname": "guest_type",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Guest Type",
+   "options": "Distributor \nDoctor\nOthers"
+  },
+  {
+   "fieldname": "guest_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Guest Name"
+  },
+  {
+   "fieldname": "distributor_name",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Distributor Name",
+   "options": "Master Distributor"
+  },
+  {
+   "fieldname": "account_name",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Account Name",
+   "options": "Master Accounts"
+  },
+  {
+   "fieldname": "contact_name",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Contact Name",
+   "options": "Master Contacts"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-09-11 16:24:47.367670",
+ "modified": "2026-09-18 12:23:39.239639",
  "modified_by": "Administrator",
  "module": "club",
  "name": "Food and Stay Child",

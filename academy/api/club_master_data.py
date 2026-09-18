@@ -14,6 +14,7 @@ def get_club_masters():
             "meal_type": frappe.get_all("Meal Type", fields=["name"]),
             "service_type": frappe.get_all("Service Type", fields=["name"]),
             "guest_region": frappe.get_all("Guest Region", fields=["name"]),
+            "customer_type": frappe.get_all("Customer Type", fields=["name"]),
         }
         return {
             "success_key": 1,
@@ -79,6 +80,34 @@ def get_states(country):
         }
     except Exception as e:
         frappe.log_error(title="Club Geo States API Error", message=frappe.get_traceback())
+        return {
+            "success_key": 0,
+            "message": str(e)
+        }
+
+@frappe.whitelist()
+def get_cities(search_name=None):
+    """
+    Initial 10 city load. If search_name is provided, it searches by name.
+    """
+    try:
+        filters = {}
+        if search_name:
+            filters["name"] = ["like", f"%{search_name}%"]
+
+        cities = frappe.get_all(
+            "City List",
+            filters=filters,
+            fields=["name"],
+            limit_page_length=10,
+            order_by="name asc"
+        )
+        return {
+            "success_key": 1,
+            "data": cities
+        }
+    except Exception as e:
+        frappe.log_error(title="Club Geo Cities API Error", message=frappe.get_traceback())
         return {
             "success_key": 0,
             "message": str(e)

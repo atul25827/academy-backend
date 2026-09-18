@@ -215,40 +215,55 @@ def _sync_stay_from_food(doc):
 	if they have 'is_stay' set to true. Prevents duplicates by checking guest names.
 	"""
 	stay_list = doc.get("stay") or []
-	
+
 	for food_item in doc.get("food_and_catering") or []:
 		# Check if this item is marked for stay
 		if food_item.is_stay or food_item.both_stay_and_food:
-			guest_name = food_item.distributor_or_guest_name
-			
+			g_name = food_item.guest_name
+
 			# Ensure we have a guest name before matching to prevent blank duplicate rows
-			if not guest_name:
+			if not g_name:
 				continue
-				
+
 			# Check if there's already a stay item for this guest and check_in
 			exists = False
 			for stay_item in stay_list:
-				if stay_item.distributor_or_guest_name == guest_name and stay_item.check_in_date == food_item.check_in_date:
+				if stay_item.guest_name == g_name and stay_item.check_in_date == food_item.check_in_date:
 					exists = True
-					# Auto-update the checkout date and remark if modified in food
+					# Auto-update fields if modified in food
 					stay_item.check_out_date = food_item.check_out_date
 					stay_item.remark = food_item.remark
 					break
-			
+
 			if not exists:
 				# Append a new mirrored row to stay
 				doc.append("stay", {
-					"distributor_or_guest_name": guest_name,
+					"booking_for": food_item.booking_for,
+					"day": food_item.day,
+					"total_no_of_guest": food_item.total_no_of_guest,
+					"guest_type": food_item.guest_type,
+					"guest_name": g_name,
+					"distributor_name": food_item.distributor_name,
+					"account_name": food_item.account_name,
+					"contact_name": food_item.contact_name,
 					"designation": food_item.designation,
-					"firm_or_hospital_name": food_item.firm_or_hospital_name,
 					"repeat_guest": food_item.repeat_guest,
 					"state": food_item.state,
 					"country": food_item.country,
+					"food_preferences": food_item.food_preferences,
+					"meal_type": food_item.meal_type,
+					"veg": food_item.veg,
+					"non_veg": food_item.non_veg,
+					"jain": food_item.jain,
+					"other": food_item.other,
 					"check_in_date": food_item.check_in_date,
 					"check_out_date": food_item.check_out_date,
 					"remark": food_item.remark,
-					"is_stay": 1
+					"is_stay": 1,
+					"is_food": food_item.is_food,
+					"both_stay_and_food": food_item.both_stay_and_food,
 				})
+
 
 
 def _apply_approval_matrix(doc):
@@ -423,6 +438,26 @@ def get_club_booking_details(club_booking_id):
 			
 		if doc_dict.get("food_and_catering"):
 			doc_dict["food_and_catering"] = [row for row in doc_dict["food_and_catering"] if not row.get("is_deleted")]
+
+		# Resolve names for distributor, account, and contact from their respective masters
+		def resolve_names(rows):
+			if not rows: return
+			for row in rows:
+				if row.get("distributor_name"):
+					d_name = frappe.db.get_value("Master Distributor", row["distributor_name"], "distributor_name")
+					if d_name:
+						row["distributor_name"] = d_name
+				if row.get("account_name"):
+					a_name = frappe.db.get_value("Master Accounts", row["account_name"], "account_name")
+					if a_name:
+						row["account_name"] = a_name
+				if row.get("contact_name"):
+					c_name = frappe.db.get_value("Master Contacts", row["contact_name"], "contact_name")
+					if c_name:
+						row["contact_name"] = c_name
+
+		resolve_names(doc_dict.get("stay"))
+		resolve_names(doc_dict.get("food_and_catering"))
 
 		user = frappe.session.user
 
