@@ -557,7 +557,7 @@ def get_booking_details(booking_id=None):
 			and not doc.cancel_request
 			and doc.event_status == "Approved"
 			and doc.event_start_date
-			and getdate(doc.event_start_date) > getdate(nowdate())
+			# and getdate(doc.event_start_date) > getdate(nowdate())
 		)
 		doc_dict["is_cancellable"] = bool(is_cancellable)
 
