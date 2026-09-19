@@ -98,7 +98,7 @@ def get_cities(search_name=None):
         cities = frappe.get_all(
             "City List",
             filters=filters,
-            fields=["name"],
+            fields=["name", "state"],
             limit_page_length=10,
             order_by="name asc"
         )

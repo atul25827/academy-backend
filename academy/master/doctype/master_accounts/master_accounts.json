@@ -1,6 +1,7 @@
 {
  "actions": [],
  "allow_rename": 1,
+ "autoname": "format:{account_code}-{account_name}",
  "creation": "2026-09-16 11:30:41.271409",
  "doctype": "DocType",
  "engine": "InnoDB",
@@ -24,6 +25,7 @@
    "unique": 1
   },
   {
+   "fetch_from": "city.district",
    "fieldname": "district",
    "fieldtype": "Data",
    "label": "District"
@@ -80,10 +82,11 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-09-18 10:57:48.136114",
+ "modified": "2026-09-19 11:26:37.787059",
  "modified_by": "Administrator",
  "module": "master",
  "name": "Master Accounts",
+ "naming_rule": "Expression (old style)",
  "owner": "Administrator",
  "permissions": [
   {
