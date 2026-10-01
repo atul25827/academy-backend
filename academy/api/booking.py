@@ -563,7 +563,8 @@ def get_booking_details(booking_id=None):
 
 		# Can edit: Academy Admin and event end date not passed (or not set)
 		roles = frappe.get_roles(user)
-		can_edit = "Academy Admin" in roles and (not doc.event_end_date or getdate(doc.event_end_date) >= getdate(nowdate()))
+		# can_edit = "Academy Admin" in roles and (not doc.event_end_date or getdate(doc.event_end_date) >= getdate(nowdate()))
+		can_edit = "Academy Admin" in roles
 		doc_dict["can_edit"] = bool(can_edit)
 
 		# Filter out deleted event_planning rows
